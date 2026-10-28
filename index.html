@@ -1,0 +1,2521 @@
+<title>Hollowfall</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Special+Elite&display=swap">
+<style>
+/* Layout: one-screen console. Status strip on top, scrolling story log in the middle, action deck pinned at the bottom. */
+:root{
+  --ground:#171512; --panel:#201d19; --line:#3a352e; --shadow:#0c0b09;
+  --bone:#e8e1cf; --dim:#a29b8b;
+  --torch:#d98a2b; --blood:#b8452f; --blood-text:#e98a70; --moss:#97ad66; --ice:#7fb4bb; --violet:#c9a0ee; --gold:#f0b455;
+  --display:'Special Elite','Courier New',ui-monospace,monospace;
+  --body:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--ground);color:var(--bone);font:16px/1.5 var(--body);
+  margin:0;padding-block:8px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.app{height:100%;max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:10px;min-height:0}
+.status{flex:none;display:flex;flex-direction:column;gap:7px;padding-bottom:9px;border-bottom:2px solid var(--line)}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+h1{margin:0;font:400 22px/1.1 var(--display);color:var(--torch);text-wrap:balance;min-width:0}
+#day{font:500 13px var(--display);color:var(--dim);letter-spacing:.08em;text-transform:uppercase;text-align:right}
+.bars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.lab{font:500 13px var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar{height:8px;background:var(--panel);border:1px solid var(--line);margin-top:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0}
+.hp i{background:var(--blood)} .food i{background:var(--torch)} .xp i{background:var(--ice)}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .25s}}
+.chips{display:flex;flex-wrap:wrap;gap:3px 14px;font:500 14px var(--display);color:var(--dim);font-variant-numeric:tabular-nums}
+.chips span:empty{display:none}
+#em{color:var(--moss)} #ec{color:var(--ice)} #bf{color:var(--torch)} #ti{color:var(--gold)}
+#log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:2px;overscroll-behavior:contain}
+.e{margin:0;max-width:64ch;text-wrap:pretty}
+.e.sys{color:var(--dim)}
+.e.hit{color:var(--blood-text)}
+.e.win{color:var(--moss)}
+.e.loot{color:var(--torch)}
+.e.lvl{color:var(--ice);font-weight:700}
+.e.npc{font-style:italic}
+.e.day{font:500 12px var(--display);color:var(--dim);text-align:center;letter-spacing:.14em;text-transform:uppercase;margin-top:8px}
+#deck{flex:none;max-height:48%;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:2px solid var(--line);overscroll-behavior:contain}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.grid.one{grid-template-columns:minmax(0,1fr)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.btn{
+  font:400 16px/1.2 var(--display);min-height:46px;padding:8px 10px;
+  background:var(--panel);color:var(--bone);border:1.5px solid var(--line);border-radius:2px;
+  cursor:pointer;text-align:center;letter-spacing:.02em;
+}
+.btn:active:not(:disabled){transform:translateY(1px);filter:brightness(1.25)}
+.btn.primary,.btn.on{background:var(--torch);color:#1b1208;border-color:#e8a24e}
+.btn.danger{border-color:var(--blood);color:var(--blood-text)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.btn.sm{min-height:38px;padding:4px 12px;font-size:14px}
+.dh{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.dh h2{margin:0;font:400 19px var(--display);color:var(--torch)}
+.sec{margin:6px 0 0;font:500 13px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.rt{min-width:0;flex:1 1 170px}
+.rt b{display:block;font-weight:700}
+.rt small{display:block;color:var(--dim);font-size:14px;line-height:1.35}
+.ra{display:flex;flex-wrap:wrap;gap:6px;flex:none;justify-content:flex-end}
+.ra:empty{display:none}
+.ok{color:var(--moss)} .no{color:var(--blood-text)}
+.r1{color:var(--moss)} .r2{color:var(--ice)} .r3{color:var(--violet)} .r4{color:var(--gold)}
+.foe{display:flex;flex-direction:column;gap:2px}
+.foe b{font:400 19px var(--display)}
+.foe .bar{height:10px;margin-top:2px}
+.foe .bar i{background:var(--blood)}
+.foe small{color:var(--dim);font-variant-numeric:tabular-nums;min-height:1.3em}
+.foe small.warn,.hint.warn{color:var(--blood-text);font-weight:700}
+.hint{margin:0;color:var(--dim);font-size:14px}
+textarea{width:100%;background:var(--panel);color:var(--bone);border:1.5px solid var(--line);border-radius:2px;font:13px/1.3 ui-monospace,monospace;padding:6px;resize:vertical}
+textarea:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+</style>
+
+<div class="app">
+  <header class="status">
+    <div class="top"><h1 id="loc">Ember Camp</h1><span id="day">Day 1</span></div>
+    <div class="bars">
+      <div class="stat"><div class="lab" id="hpT"></div><div class="bar hp"><i id="hpF"></i></div></div>
+      <div class="stat"><div class="lab" id="foodT"></div><div class="bar food"><i id="foodF"></i></div></div>
+      <div class="stat"><div class="lab" id="xpT"></div><div class="bar xp"><i id="xpF"></i></div></div>
+    </div>
+    <div class="chips"><span id="lv"></span><span id="atk"></span><span id="def"></span><span id="em"></span><span id="bf"></span><span id="ec"></span><span id="ti"></span></div>
+  </header>
+  <main id="log" aria-live="polite" aria-label="Story"></main>
+  <nav id="deck" aria-label="Actions"></nav>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* ================= ITEMS ================= */
+const ITEMS={
+  // raw materials
+  wood:{n:'Salvage Plank',t:'mat',v:1}, stone:{n:'Slag',t:'mat',v:1}, coal:{n:'Cinder',t:'mat',v:2},
+  iron_ore:{n:'Rust Ore',t:'mat',v:3}, iron:{n:'Steel Bar',t:'mat',v:6}, bone:{n:'Bone',t:'mat',v:2},
+  string:{n:'Sinew Cord',t:'mat',v:2}, gunpowder:{n:'Blast Salt',t:'mat',v:4}, leather:{n:'Scav Hide',t:'mat',v:3},
+  wheat:{n:'Ash Grain',t:'mat',v:1}, berries:{n:'Lantern Berries',t:'mat',v:2}, raw_pork:{n:'Raw Boar',t:'mat',v:2},
+  mushroom:{n:'Pale Cap',t:'mat',v:2}, frost_core:{n:'Rime Crystal',t:'mat',v:5}, prismarine:{n:'Tidal Glass',t:'mat',v:6},
+  diamond:{n:'Star Shard',t:'mat',v:40}, obsidian:{n:'Voidglass',t:'mat',v:12}, crown:{n:'Hollow Crown',t:'mat',v:150},
+  dragon_scale:{n:'Wyrm Scale',t:'mat',v:60},
+  cog:{n:'Brass Cog',t:'mat',v:8}, oil:{n:'Machine Oil',t:'mat',v:6}, salt:{n:'Salt Crystal',t:'mat',v:9},
+  ember:{n:'Ember Core',t:'mat',v:14}, mirror:{n:'Mirror Shard',t:'mat',v:16}, moss:{n:'Glimmer Moss',t:'mat',v:8},
+  hymn:{n:'Hymn Bell',t:'mat',v:18}, spring:{n:'Spring Coil',t:'mat',v:20}, gsand:{n:'Glass Sand',t:'mat',v:24},
+  void_ink:{n:'Void Ink',t:'mat',v:40}, starlight:{n:'Starlight Dust',t:'mat',v:36}, lastlight:{n:'Lastlight Shard',t:'mat',v:90},
+  rift_core:{n:'Rift Core',t:'mat',v:60}, scrap:{n:'Salvage',t:'mat',v:3},
+  // food (food = hunger restored, hpp = % of max HP)
+  flesh:{n:'Spoiled Jerky',t:'food',v:1,food:8,hpp:0,bad:1}, apple:{n:'Pale Apple',t:'food',v:2,food:12,hpp:2},
+  bread:{n:'Hardtack',t:'food',v:3,food:25,hpp:3}, stew:{n:'Cap Stew',t:'food',v:5,food:30,hpp:8},
+  pork:{n:'Roast Boar',t:'food',v:6,food:40,hpp:6}, ration:{n:'Field Ration',t:'food',v:9,food:50,hpp:4},
+  feast:{n:'Camp Feast',t:'food',v:30,food:60,hpp:18}, gapple:{n:'Sunfruit',t:'food',v:40,food:30,hpp:50},
+  // tonics
+  potion:{n:'Healing Tonic',t:'heal',v:12,hpp:35}, potion2:{n:'Strong Tonic',t:'heal',v:40,hpp:60},
+  potion3:{n:'Grand Tonic',t:'heal',v:120,hpp:100,cure:1}, antidote:{n:'Antidote',t:'heal',v:10,hpp:8,cure:1},
+  strength:{n:'Rage Tonic',t:'buff',v:14,b:'rage',m:1.5,turns:6}, strength2:{n:'Fury Tonic',t:'buff',v:60,b:'rage',m:1.8,turns:8},
+  ward:{n:'Stone Tonic',t:'buff',v:16,b:'ward',m:1.4,turns:6},
+  // tools
+  pearl:{n:'Smoke Bomb',t:'tool',v:10}, tnt:{n:'Blast Charge',t:'tool',v:8}, stunb:{n:'Flash Bomb',t:'tool',v:14},
+  totem:{n:'Ember Charm',t:'totem',v:60}
+};
+
+/* ================= GEAR ================= */
+const SLOTS=['w','a','h','b','c'];
+const SLOTN={w:'Weapon',a:'Armor',h:'Helm',b:'Boots',c:'Charm'};
+const RAR=['Common','Fine','Rare','Epic','Relic'];
+const RM=[1,1.08,1.17,1.28,1.42];
+const RVAL=[1,1.6,2.8,5,9];
+const TW=[3,7,13,21,31,43,57,73,91,111];
+const TAr=[1.5,3.5,7,10,14,18,23,29,35,41];
+const THp=[0,5,10,18,26,36,48,62,78,96];
+const THe=[1,2,4,6,8,10,13,17,20,24];
+const TBo=[1,1,3,4,6,8,10,12,15,17];
+const TCh=[3,6,10,15,22,30,40,52,66,82];
+const BV=[6,20,60,140,280,520,900,1500,2400,3800];
+const SVM={w:1.2,a:1.4,h:.8,b:.8,c:1};
+const CNT={w:1,a:1.5,h:.8,b:.8,c:.6};
+const TIERS=[
+  {n:'Scrap',L:1,fl:1,c:[['wood',3],['leather',2]],nm:{w:'Scrap Club',a:'Scav Rags',h:'Scrap Cap',b:'Rag Wraps',c:'Bottlecap Charm'}},
+  {n:'Slag',L:4,fl:1,c:[['stone',5],['leather',3]],nm:{w:'Slag Cleaver',a:'Slag Vest',h:'Slag Helm',b:'Slag Treads',c:'Cinder Locket'}},
+  {n:'Steel',L:8,fl:1,c:[['iron',4],['leather',2]],nm:{w:'Steel Saber',a:'Steel Plate',h:'Steel Helm',b:'Steel Greaves',c:'Steel Signet'}},
+  {n:'Rime',L:13,fl:2,c:[['frost_core',3],['iron',3]],nm:{w:'Rimebrand',a:'Rime Hauberk',h:'Rime Coif',b:'Rime Boots',c:'Frostglass Pendant'}},
+  {n:'Rustwrought',L:18,fl:2,c:[['cog',4],['iron',3],['oil',1]],nm:{w:'Gearblade',a:'Rustwrought Cuirass',h:'Rustwrought Visor',b:'Rustwrought Treads',c:'Cog Amulet'}},
+  {n:'Tidal',L:24,fl:3,c:[['prismarine',4],['salt',3]],nm:{w:'Brineblade',a:'Tidal Mail',h:'Tidal Mask',b:'Tideboots',c:'Salt Pearl'}},
+  {n:'Voidglass',L:30,fl:3,c:[['obsidian',4],['ember',3]],nm:{w:'Voidglass Cleaver',a:'Voidglass Plate',h:'Voidglass Visor',b:'Voidglass Boots',c:'Voidglass Charm'}},
+  {n:'Starshard',L:38,fl:4,c:[['diamond',3],['mirror',3]],nm:{w:'Starshard Blade',a:'Starshard Mail',h:'Starshard Helm',b:'Starshard Greaves',c:'Starshard Sigil'}},
+  {n:'Sunglass',L:46,fl:4,c:[['spring',4],['gsand',3]],nm:{w:'Sunglass Saber',a:'Sunglass Hauberk',h:'Sunglass Visor',b:'Sunglass Treads',c:'Sunstone Locket'}},
+  {n:'Lastlight',L:54,fl:5,c:[['dragon_scale',3],['starlight',3],['void_ink',2]],nm:{w:'Lastlight Edge',a:'Lastlight Aegis',h:'Lastlight Crown',b:'Lastlight Stride',c:'Lastlight Heart'}}
+];
+const GEAR={};
+TIERS.forEach((T,i)=>{
+  SLOTS.forEach(s=>{
+    const b={id:s+(i+1),slot:s,tier:i+1,n:T.nm[s],atk:0,def:0,hp:0};
+    if(s==='w')b.atk=TW[i];
+    if(s==='a'){b.def=TAr[i];b.hp=THp[i];}
+    if(s==='h'){b.def=THe[i];b.hp=Math.round(THp[i]/2);}
+    if(s==='b'){b.def=TBo[i];b.hp=Math.round(THp[i]/3);}
+    if(s==='c'){b.hp=TCh[i];}
+    b.v=Math.round(BV[i]*SVM[s]);
+    GEAR[b.id]=b;
+  });
+});
+// old save ids -> new base ids
+const LEGACY={w_wood:'w1',w_stone:'w2',w_iron:'w3',w_frost:'w4',w_diamond:'w5',w_obsidian:'w6',w_dragon:'w9',
+  a_leather:'a1',a_chain:'a2',a_iron:'a3',a_diamond:'a5',a_obsidian:'a6',a_prism:'a7',a_dragon:'a9'};
+
+/* ================= AFFIXES ================= */
+// f(t) -> [lo,hi] for tier t (1-10); p = percent stat; i = integer
+const AFF={
+  atk:{n:'ATK',i:1,f:t=>[1+1.7*t,3+2.4*t],s:['w','c']},
+  def:{n:'DEF',i:1,f:t=>[1+1*t,2+1.5*t],s:['a','h','b','c']},
+  hp:{n:'Max HP',i:1,f:t=>[4+5*t,9+8*t],s:['a','h','b','c']},
+  crit:{n:'Crit chance',p:1,f:t=>[2,4+.25*t],s:['w','h','c']},
+  critd:{n:'Crit damage',p:1,f:t=>[8,14+1.5*t],s:['w','c']},
+  dodge:{n:'Dodge',p:1,f:t=>[1.5,3+.3*t],s:['a','b','c']},
+  ls:{n:'Lifesteal',p:1,f:t=>[1.5,3+.3*t],s:['w','c']},
+  thorn:{n:'Thorns',p:1,f:t=>[3,6+.6*t],s:['a','h']},
+  focus:{n:'Focus per hit',i:1,f:t=>[1,2+.3*t],s:['w','b','c']},
+  xp:{n:'XP gain',p:1,f:t=>[2,4+.4*t],s:['h','c']},
+  em:{n:'Scrip find',p:1,f:t=>[3,6+.5*t],s:['h','b','c']},
+  loot:{n:'Loot find',p:1,f:t=>[3,6+.5*t],s:['h','b','c']},
+  regen:{n:'Regen per turn',p:1,f:t=>[.4,.9+.05*t],s:['a','c']},
+  heal:{n:'Tonic potency',p:1,f:t=>[4,9+t],s:['a','h','c']},
+  food:{n:'Hunger saved',p:1,f:t=>[3,6+.4*t],s:['b','c']}
+};
+const AFFK=Object.keys(AFF);
+
+/* ================= RELICS (unique, boss drops) ================= */
+const RELICS=[
+  {id:'rl1',n:'Tusk-Mother\'s Fang',slot:'w',tier:2,a:[['atk',11],['ls',3],['crit',4]],d:'A boar tusk bound in wire. It still drips.',from:'tusk_mother'},
+  {id:'rl2',n:'Reeve\'s Bell',slot:'c',tier:3,a:[['hp',60],['regen',.8],['xp',6]],d:'The headman\'s bell. It rings only for the living.',from:'hollow_reeve'},
+  {id:'rl3',n:'Loomsilk Cloak',slot:'a',tier:3,a:[['def',14],['dodge',5],['thorn',8]],d:'Woven by something patient.',from:'mother_loom'},
+  {id:'rl4',n:'The Hush-Breaker',slot:'w',tier:4,a:[['atk',30],['crit',7],['critd',20]],d:'Forged from the Hush\'s own silence.',from:'warden'},
+  {id:'rl5',n:'Hoarfang Crown',slot:'h',tier:4,a:[['def',14],['hp',70],['dodge',4]],d:'Frost that refuses to melt.',from:'hoarfang'},
+  {id:'rl6',n:'Overseer\'s Core',slot:'c',tier:5,a:[['atk',22],['focus',3],['heal',12]],d:'A warm brass heart, still ticking.',from:'overseer'},
+  {id:'rl7',n:'Lantern-Eater',slot:'w',tier:6,a:[['atk',46],['ls',6],['focus',3],['loot',10]],d:'It remembers the drowned light.',from:'ancient_guardian'},
+  {id:'rl8',n:'Cinder Maw Plate',slot:'a',tier:7,a:[['def',34],['hp',160],['thorn',14]],d:'Still warm after all this time.',from:'cinder_maw'},
+  {id:'rl9',n:'Hollowcrown Edge',slot:'w',tier:7,a:[['atk',70],['critd',30],['ls',7],['crit',8]],d:'Alder\'s sword, hollowed to a hungry edge.',from:'hollow_king'},
+  {id:'rl10',n:'Reflection Visor',slot:'h',tier:8,a:[['def',32],['dodge',8],['xp',10],['crit',6]],d:'It shows you what you would do next.',from:'reflection'},
+  {id:'rl11',n:'Choirmaster\'s Baton',slot:'w',tier:8,a:[['atk',88],['focus',5],['crit',9]],d:'It keeps perfect time.',from:'choirmaster'},
+  {id:'rl12',n:'Mainspring Heart',slot:'c',tier:9,a:[['hp',230],['regen',1.4],['focus',4],['heal',18]],d:'Wound tight. It never runs down.',from:'mainspring'},
+  {id:'rl13',n:'Sandglass Greaves',slot:'b',tier:9,a:[['def',28],['dodge',10],['food',14],['loot',12]],d:'Time pools around your ankles.',from:'sandglass'},
+  {id:'rl14',n:'Wyrmfang',slot:'w',tier:10,a:[['atk',120],['critd',40],['ls',8],['crit',10]],d:'The last light in a hunting shape.',from:'ender_dragon'},
+  {id:'rl15',n:'Aegis of the Quiet',slot:'a',tier:10,a:[['def',60],['hp',300],['dodge',10],['regen',1.6]],d:'Nothing hits what is not quite there.',from:'quiet'}
+];
+const RLD={};RELICS.forEach(r=>{RLD[r.id]=r;});
+
+/* ================= RECIPES ================= */
+// out: item id | g: gear base id ; fl: forge level needed; kl: kitchen level needed
+const RECIPES=[
+  {k:'Smelt',out:'iron',in:[['iron_ore',1],['coal',1]]},
+  {k:'Smelt',out:'pork',in:[['raw_pork',1],['coal',1]]},
+  {k:'Bake',out:'bread',in:[['wheat',3]]},
+  {k:'Cook',out:'stew',in:[['mushroom',2],['wheat',1]]},
+  {k:'Cook',out:'ration',in:[['wheat',4],['raw_pork',1]],kl:1},
+  {k:'Cook',out:'feast',in:[['stew',2],['pork',2],['berries',2]],kl:3},
+  {k:'Brew',out:'potion',in:[['berries',3],['bone',1]]},
+  {k:'Brew',out:'potion2',in:[['potion',2],['salt',1]]},
+  {k:'Brew',out:'potion3',in:[['potion2',2],['starlight',1]]},
+  {k:'Brew',out:'antidote',in:[['berries',1],['mushroom',1]]},
+  {k:'Brew',out:'strength',in:[['berries',2],['gunpowder',1]]},
+  {k:'Brew',out:'strength2',in:[['strength',2],['ember',1]]},
+  {k:'Brew',out:'ward',in:[['stone',3],['moss',1]]},
+  {k:'Craft',out:'tnt',in:[['gunpowder',3],['string',1]]},
+  {k:'Craft',out:'stunb',in:[['gunpowder',1],['salt',1],['string',1]]},
+  {k:'Craft',out:'totem',in:[['diamond',2],['obsidian',2],['gunpowder',2]]}
+];
+TIERS.forEach((T,i)=>{SLOTS.forEach(s=>{
+  RECIPES.push({k:'Forge',g:s+(i+1),fl:T.fl,in:T.c.map(([id,n])=>[id,Math.max(1,Math.round(n*CNT[s]))])});
+});});
+
+/* ================= WORLD ================= */
+// role multipliers: [hp, atk, def]
+const ROLES={grunt:[1,1,1],brute:[1.5,1.1,1.2],skirm:[.75,1.25,.7],caster:[.7,1.4,.4],tank:[1.9,.8,1.6],glass:[.55,1.5,.5],beast:[1.1,1.1,.9]};
+const TRAITN={poison:'Venomous',burn:'Scorching',armored:'Armored',swift:'Swift',regen:'Regenerating',thorns:'Spined',drain:'Leeching',heavy:'Heavy-handed',evasive:'Slippery',frenzy:'Frenzied'};
+const ELITE_TR=['poison','burn','armored','swift','regen','thorns','drain','frenzy','heavy'];
+const MOBS={
+  // --- Ashen Flats
+  zombie:{n:'Ashen Shambler',r:'grunt',tr:[],loot:[['flesh',.6],['leather',.3],['iron_ore',.1]],hv:'claws at you',intro:'An ashen shambler drags itself upright, jaw hanging.'},
+  pig:{n:'Feral Boar',r:'beast',tr:[],loot:[['raw_pork',.9],['leather',.2]],hv:'gores you',intro:'A feral boar, ribs showing, lowers its tusks.'},
+  spider:{n:'Cinder Crawler',r:'skirm',tr:['poison'],loot:[['string',.8],['bone',.2]],hv:'sinks fangs into you',intro:'Something skitters across the wall. A cinder crawler drops in front of you.'},
+  creeper:{n:'Powderback',r:'glass',tr:['fuse'],loot:[['gunpowder',.85,1,2]],boom:3.2,intro:'A powderback stands very still, the kegs on its back ticking. Too still.'},
+  crow:{n:'Carrion Crow',r:'skirm',tr:['swift'],loot:[['bone',.4],['flesh',.3],['string',.2]],hv:'pecks at your eyes',intro:'A carrion crow drops out of the grey and does not bother to caw first.'},
+  // --- Quiet Hamlet
+  skeleton:{n:'Rattler',r:'skirm',tr:[],loot:[['bone',.8],['coal',.2]],hv:'puts an arrow in you',intro:'Bone rattles on stone. A rattler nocks an arrow.'},
+  pillager:{n:'Raider',r:'grunt',tr:[],loot:[['iron_ore',.5],['bread',.3],['potion',.1],['totem',.02]],hv:'cuts you with a crossbow bolt',intro:'A raider steps out of cover, crossbow already raised.'},
+  thrall:{n:'Bellbound Thrall',r:'brute',tr:['thorns'],loot:[['leather',.4],['bone',.4],['hymn',.05]],hv:'swings a chain at you',intro:'A thrall shuffles in time to a bell that is not ringing. It turns its head slowly toward you.'},
+  hound:{n:'Hollow Hound',r:'beast',tr:['swift'],loot:[['raw_pork',.5],['leather',.5],['bone',.3]],hv:'tears at you',intro:'A hound with no eyes in its eye-sockets circles you, panting without breath.'},
+  // --- Ghostwood
+  wisp:{n:'Gloom Wisp',r:'caster',tr:['burn','evasive'],loot:[['moss',.5],['coal',.3]],hv:'sears you with cold fire',intro:'A pale light drifts between the trunks. It does not drift away.'},
+  bramble:{n:'Bramble Beast',r:'tank',tr:['thorns'],loot:[['wood',.8,1,3],['berries',.5],['moss',.3]],hv:'lashes you with thorned limbs',intro:'The undergrowth stands up and turns out to be a bramble beast.'},
+  weaver:{n:'Weaver',r:'skirm',tr:['poison'],loot:[['string',.9,1,3],['bone',.3]],hv:'bites you',intro:'Webbing sags between the trunks. A weaver lowers itself, many-legged and patient.'},
+  stag:{n:'Pale Stag',r:'brute',tr:['swift'],loot:[['leather',.7,1,2],['bone',.5],['raw_pork',.3]],hv:'gores you with its antlers',intro:'A pale stag steps out of the mist, antlers hung with something that used to be a person.'},
+  // --- Deep Works
+  miner:{n:'Hollow Miner',r:'grunt',tr:['armored'],loot:[['iron_ore',.7,1,2],['coal',.5],['stone',.5]],hv:'swings a pick at you',intro:'A hollow miner turns from the wall, pick raised, helmet lamp still burning.'},
+  enderman:{n:'Gaunt Stalker',r:'skirm',tr:['evasive'],loot:[['diamond',.1],['obsidian',.25],['pearl',.15]],hv:'tears into you',intro:'The air bends. A gaunt stalker unfolds, far too tall, and looks right at you.'},
+  bat:{n:'Gloom Bat',r:'glass',tr:['swift','drain'],loot:[['bone',.4],['flesh',.4]],hv:'bites you',intro:'The dark above you rustles. A gloom bat peels off the ceiling.'},
+  // --- Rime Barrens
+  stray:{n:'Rime Walker',r:'skirm',tr:[],loot:[['bone',.7],['frost_core',.3],['string',.2]],hv:'puts a frozen arrow in you',intro:'A rime walker steps out of the whiteout, frost on its ribs.'},
+  frost_wolf:{n:'Rime Wolf',r:'beast',tr:['swift'],loot:[['leather',.6],['raw_pork',.5],['frost_core',.2]],hv:'tears at you',intro:'Yellow eyes in the snow. A rime wolf circles.'},
+  icewretch:{n:'Frozen Wretch',r:'tank',tr:['armored','regen'],loot:[['frost_core',.6,1,2],['bone',.4]],hv:'hammers you with frozen fists',intro:'A frozen wretch lurches out of a snowdrift, ice cracking at every joint.'},
+  yeti:{n:'Snow Brute',r:'brute',tr:['heavy'],loot:[['leather',.7,1,3],['raw_pork',.6],['frost_core',.25]],hv:'crushes you',intro:'A snow brute rises from the drift, bigger than anything has a right to be.'},
+  // --- Rustyard
+  drone:{n:'Scrap Drone',r:'skirm',tr:['evasive'],loot:[['cog',.4],['oil',.4],['iron_ore',.3]],hv:'zaps you',intro:'A scrap drone whirs up out of a wrecked machine, one rotor crooked.'},
+  golem:{n:'Cog Golem',r:'tank',tr:['armored','heavy'],loot:[['cog',.7,1,2],['iron',.4],['oil',.4]],hv:'slams you',intro:'A heap of gears and plating assembles itself into a cog golem.'},
+  rhound:{n:'Rust Hound',r:'beast',tr:['armored'],loot:[['iron_ore',.5],['oil',.3],['cog',.2]],hv:'savages you',intro:'A rust hound lopes out of the wreckage, red with oxide and worse.'},
+  welder:{n:'Arc Welder',r:'caster',tr:['burn'],loot:[['oil',.5],['cog',.3],['coal',.4]],hv:'burns you with an arc',intro:'Sparks fall like rain. An arc welder turns its torch on you.'},
+  // --- Sunken Quarter
+  drowned:{n:'Brine Wretch',r:'grunt',tr:['drain'],loot:[['flesh',.5],['prismarine',.3],['salt',.3]],hv:'drags you under',intro:'Something rises from the shallows, dripping and wrong.'},
+  guardian:{n:'Tide Sentinel',r:'caster',tr:[],loot:[['prismarine',.8],['salt',.4],['diamond',.08]],hv:'burns you with a beam',intro:'A tide sentinel drifts in, its single lamp brightening.'},
+  eel:{n:'Lamp Eel',r:'skirm',tr:['swift'],loot:[['salt',.5],['prismarine',.3]],hv:'shocks you',intro:'A lamp eel uncoils out of a drowned doorway, glowing at the tip.'},
+  barnacle:{n:'Barnacle Brute',r:'tank',tr:['thorns'],loot:[['prismarine',.6,1,2],['salt',.5]],hv:'crushes you against the wall',intro:'The wall moves. A barnacle brute pulls itself off it, shell scraping.'},
+  // --- Cinder Fields
+  blaze:{n:'Flare Wraith',r:'caster',tr:['burn'],loot:[['ember',.5],['coal',.8],['gunpowder',.3]],hv:'scorches you',intro:'A flare wraith drifts out of the glare, trailing sparks.'},
+  hulk:{n:'Slag Hulk',r:'tank',tr:['heavy','burn'],loot:[['ember',.5,1,2],['obsidian',.4],['stone',.5]],hv:'pounds you with molten fists',intro:'The slag cools into a hulk and turns toward you.'},
+  runner:{n:'Ash Runner',r:'skirm',tr:['swift'],loot:[['ember',.3],['coal',.5],['leather',.4]],hv:'rakes you',intro:'An ash runner breaks out of the haze at a dead sprint.'},
+  wither_skeleton:{n:'Charred Knight',r:'brute',tr:['frenzy'],loot:[['bone',.6],['diamond',.15],['coal',.5],['obsidian',.3]],hv:'cleaves you',intro:'A charred knight rises from the black rock, blade dragging sparks.'},
+  // --- The Scar
+  leech:{n:'Rift Leech',r:'grunt',tr:['drain','regen'],loot:[['obsidian',.5],['ember',.3],['void_ink',.04]],hv:'latches onto you',intro:'A rift leech slides out of the seam in the ground, glistening.'},
+  hknight:{n:'Hollow Knight',r:'brute',tr:['frenzy','armored'],loot:[['iron',.5,1,2],['obsidian',.4],['crown',.01]],hv:'cuts you down',intro:'A hollow knight in cracked armor stands in the road. It does not raise its sword. It does not need to.'},
+  rhound2:{n:'Rift Hound',r:'beast',tr:['swift'],loot:[['obsidian',.4],['ember',.4],['bone',.3]],hv:'tears into you',intro:'A rift hound steps out of the seam, edges flickering.'},
+  // --- Mirror Fen
+  mimic:{n:'Glimmer Mimic',r:'skirm',tr:['evasive'],loot:[['mirror',.6],['moss',.4]],hv:'strikes you with your own reflection',intro:'Your reflection steps out of the water a half-second late. It is not yours.'},
+  hag:{n:'Fen Hag',r:'caster',tr:['poison'],loot:[['mushroom',.6],['moss',.5],['salt',.3]],hv:'hexes you',intro:'A fen hag unfolds from the reeds, cackling in two voices.'},
+  bogt:{n:'Bog Titan',r:'tank',tr:['regen'],loot:[['moss',.7,1,3],['mirror',.4],['mushroom',.5]],hv:'smashes you with a mudclot fist',intro:'The bog heaves. A titan climbs out of it, trailing weed.'},
+  marshwisp:{n:'Marsh Wisp',r:'caster',tr:['burn','evasive'],loot:[['moss',.5],['mirror',.3],['coal',.3]],hv:'sears you',intro:'A marsh wisp bobs ahead of you, begging to be followed.'},
+  // --- Choir Halls
+  chorister:{n:'Hollow Chorister',r:'caster',tr:['drain'],loot:[['hymn',.5],['bone',.4],['mirror',.2]],hv:'sings you raw',intro:'A hollow chorister opens its mouth and the hall opens with it.'},
+  bknight:{n:'Bell Knight',r:'brute',tr:['thorns','armored'],loot:[['iron',.6,1,2],['hymn',.4],['spring',.05]],hv:'tolls you with its mace',intro:'A bell knight steps out of an alcove, a great bell swinging at its hip.'},
+  shade:{n:'Echo Shade',r:'skirm',tr:['evasive'],loot:[['hymn',.4],['mirror',.3],['void_ink',.03]],hv:'echoes through you',intro:'Your footsteps keep walking after you stop. An echo shade slips out of the echo.'},
+  cherub:{n:'Stone Cherub',r:'tank',tr:['armored'],loot:[['hymn',.5],['iron',.5],['gsand',.2]],hv:'bears down on you',intro:'A stone cherub peels off the ceiling, smiling, much too heavy to fly.'},
+  // --- Clockwork Deep
+  sentry:{n:'Clockwork Sentry',r:'grunt',tr:['armored'],loot:[['spring',.4],['cog',.5],['oil',.4]],hv:'strikes you',intro:'A clockwork sentry clicks upright and swivels to face you.'},
+  mite:{n:'Spring Mite',r:'glass',tr:['fuse'],loot:[['spring',.6,1,2],['gunpowder',.4]],boom:3.6,intro:'A spring mite coils tighter and tighter, ticking, ticking.'},
+  tick:{n:'Tick Swarm',r:'skirm',tr:['swift'],loot:[['spring',.3],['cog',.5],['oil',.3]],hv:'swarms you',intro:'A hundred small ticking things pour out of a vent.'},
+  // --- Glass Desert
+  scorp:{n:'Glass Scorpion',r:'skirm',tr:['poison','armored'],loot:[['gsand',.6],['salt',.3],['bone',.3]],hv:'stings you',intro:'A glass scorpion lifts its tail, a perfect, transparent needle.'},
+  shulker:{n:'Glass Sentry',r:'tank',tr:['armored'],loot:[['obsidian',.4],['gsand',.5],['diamond',.2],['pearl',.2]],hv:'fires a homing bolt into you',intro:'A violet shell cracks open. A glass sentry watches you, and its bolts follow.'},
+  sandw:{n:'Sand Wraith',r:'caster',tr:['evasive'],loot:[['gsand',.7,1,2],['salt',.4]],hv:'scours you',intro:'The dune stands up and becomes a sand wraith.'},
+  dunew:{n:'Dune Worm',r:'brute',tr:['heavy'],loot:[['gsand',.6,1,3],['leather',.5],['diamond',.1]],hv:'swallows at you',intro:'The ground shudders. A dune worm breaks the surface, mouth wide.'},
+  // --- Lastlight Spire
+  acolyte:{n:'Lastlight Acolyte',r:'caster',tr:['burn'],loot:[['starlight',.5],['void_ink',.2],['diamond',.15]],hv:'brands you with light',intro:'A robed figure carries a lantern with no flame. It lifts it toward you, and the lantern lights.'},
+  vhound:{n:'Void Hound',r:'beast',tr:['swift','drain'],loot:[['void_ink',.3],['starlight',.4],['obsidian',.4]],hv:'tears at you',intro:'A void hound slinks out of the air, stitched together from gaps.'},
+  // --- Starless Shore
+  hollow:{n:'Hollow Walker',r:'grunt',tr:['drain'],loot:[['void_ink',.4],['starlight',.4],['bone',.4]],hv:'reaches into you',intro:'A hollow walker comes up the beach, empty to the horizon.'},
+  tide:{n:'Quiet Tide',r:'tank',tr:['regen'],loot:[['void_ink',.5,1,2],['starlight',.5]],hv:'washes over you',intro:'The tide stands up. It has been listening this whole time.'},
+  eye:{n:'Starless Eye',r:'caster',tr:['evasive','burn'],loot:[['starlight',.6],['lastlight',.1],['void_ink',.3]],hv:'stares through you',intro:'An eye opens in the dark sky. A second one opens inside your head.'},
+  fade:{n:'Fading Echo',r:'skirm',tr:['frenzy'],loot:[['starlight',.4],['void_ink',.4],['pearl',.2]],hv:'unravels you',intro:'A fading echo staggers toward you. It has your gait.'}
+};
+// bosses: p = level, hpm/am/dm = multipliers, ph = phase messages (at 66% / 33%)
+// patterns: e every N turns, k kind, d dmg mult, w warning, m message
+const BOSSES={
+  tusk_mother:{n:'The Tusk-Mother',p:5,hpm:3.2,am:1.1,dm:1.2,r:'beast',xp:1.4,em:1.4,hv:'gores you',
+    loot:[['raw_pork',1,3,5],['leather',1,3,5]],
+    pats:[{e:4,k:'sonic',d:1.6,m:'The Tusk-Mother charges and the world goes sideways',w:'She paws the ground and lowers her head. A charge is coming. Guard!'}],
+    ph:['She squeals, and the thicket answers.','Blood in her eyes. She stops guarding herself.'],
+    intro:'The brush splits. The Tusk-Mother is the size of a cart, and she has been waiting for something to hate.',
+    won:'The Tusk-Mother goes down and does not rise. The flats go quiet in a way that feels like thanks.'},
+  hollow_reeve:{n:'The Hollow Reeve',p:8,hpm:3.5,am:1.15,dm:1.2,r:'brute',xp:1.5,em:1.5,hv:'strikes you with the staff of office',
+    loot:[['hymn',.8,1,2],['bread',1,2,3],['potion',1,1,2]],
+    pats:[{e:3,k:'drain',d:1,m:'The Reeve drinks your breath and straightens',w:''},{e:5,k:'summon',d:.5,m:'The Reeve rings his bell and the hollow answer',w:'He lifts the bell. Something will come. Guard!'}],
+    ph:['His voice cracks into two voices, then three.','The bell rings by itself.'],
+    intro:'The Reeve stands in the square under the bell, headman\'s staff in one hand, an empty smile on his face. He has been the town\'s authority for forty years. He still is.',
+    won:'The Reeve folds into himself like a collapsed tent. The bell stops swinging.'},
+  mother_loom:{n:'Mother Loom',p:11,hpm:3.6,am:1.2,dm:1.2,r:'skirm',xp:1.5,em:1.5,hv:'cuts you with a silk blade',
+    loot:[['string',1,6,9],['moss',1,2,4],['potion',1,1,2]],
+    pats:[{e:3,k:'poison',d:.9,m:'Mother Loom\'s bite sinks in and the world slows',w:''},{e:5,k:'stun',d:.8,m:'You are wrapped in silk before you can move',w:'Silk threads drift toward you. She is binding. Guard!'}],
+    ph:['More legs. There were always more legs.','She has stopped weaving. She is hunting.'],
+    intro:'The whole canopy is a web, and in the center of it, patient and enormous, hangs Mother Loom. She has been collecting things that stop moving.',
+    won:'Mother Loom unspools. The Ghostwood\'s webs come loose like old bandages.'},
+  warden:{n:'The Hush',p:14,hpm:4,am:1.2,dm:1.3,r:'tank',xp:1.6,em:1.6,hv:'slams you',
+    loot:[['diamond',1,2,3],['obsidian',1,2,4],['potion2',1,1,2]],
+    pats:[{e:4,k:'sonic',d:1.7,m:'The Hush\'s shriek rips through your armor',w:'The air goes dead still. A shriek is coming. Guard!'},{e:6,k:'silence',d:.5,m:'The Hush swallows every sound you make',w:'Every sound dies. You cannot use skills while it holds. Guard!'}],
+    ph:['The Hush shudders and the whole shaft shakes with it.','The silence deepens. Your own heartbeat sounds like a trespass.'],
+    intro:'The floor stops echoing. Something with no eyes turns toward your heartbeat.',
+    won:'The Hush folds like a wet tent. The Works breathe out for the first time in years.'},
+  hoarfang:{n:'Hoarfang',p:18,hpm:4,am:1.2,dm:1.3,r:'beast',xp:1.6,em:1.6,hv:'tears into you',
+    loot:[['frost_core',1,5,8],['leather',1,4,6],['potion2',1,1,2]],
+    pats:[{e:3,k:'multi',d:.55,m:'Hoarfang tears three times, faster than thought',w:''},{e:5,k:'breath',d:1.7,m:'Hoarfang\'s frozen breath rolls over you',w:'The temperature drops. Frost gathers in its jaws. Guard!'}],
+    ph:['The pack answers from the dark.','Every howl is closer now.'],
+    intro:'The wolf is as tall as a house. The snow around its paws never settles. It has been alone, hunting, since the sky split.',
+    won:'Hoarfang\'s breath goes out for the last time. The cold lets go, a little.'},
+  overseer:{n:'The Overseer',p:22,hpm:4.2,am:1.25,dm:1.3,r:'tank',xp:1.7,em:1.7,hv:'strikes you with a tool-arm',
+    loot:[['cog',1,6,10],['oil',1,4,6],['potion2',1,1,3]],
+    pats:[{e:3,k:'beam',d:1.5,m:'The Overseer\'s work-lamp sears across the yard',w:'The lamp swivels. A work-beam is charging. Guard!'},{e:4,k:'summon',d:.5,m:'The Overseer repairs itself with a whine of gears',w:''}],
+    ph:['Its plating re-seats with a clank.','New arms unfold. It is multitasking.'],
+    intro:'Every machine in the yard stops at once. The Overseer rises from the heap, a hundred tool-arms folded, its single work-lamp turning toward you like a question.',
+    won:'The Overseer\'s lamp dims. The machines of the yard fall silent, then, one by one, start to hum.'},
+  ancient_guardian:{n:'The Drowned Lantern',p:26,hpm:4.2,am:1.25,dm:1.35,r:'caster',xp:1.7,em:1.7,hv:'burns you',
+    loot:[['prismarine',1,6,10],['salt',1,4,6],['potion2',1,2,3]],
+    pats:[{e:3,k:'beam',d:1.7,m:'The Lantern\'s beam cuts through the water and through you',w:'The great lamp brightens. A beam is charging. Guard!'},{e:5,k:'drain',d:.8,m:'The Lantern drinks the light out of your wound',w:''}],
+    ph:['The lamp burns white. The water around you boils.','The Lantern turns its whole weight toward you.'],
+    intro:'A great stone lamp opens in the drowned dark, and the water starts to hum. It was a lighthouse once. It remembers what it was built to watch for.',
+    won:'The lamp gutters and goes dark. The tide, for the first time, simply comes in.'},
+  cinder_maw:{n:'The Cinder Maw',p:30,hpm:4.4,am:1.3,dm:1.35,r:'brute',xp:1.8,em:1.8,hv:'bites down',
+    loot:[['ember',1,6,10],['obsidian',1,3,5],['potion2',1,2,3]],
+    pats:[{e:3,k:'burn',d:1.2,m:'The Maw spits a fan of burning slag',w:''},{e:5,k:'breath',d:1.9,m:'The Maw roars and the field becomes a furnace',w:'Heat shimmers. The Maw inhales. Guard!'}],
+    ph:['The ground cracks. Lava where the grass used to be.','The Maw swallows a chunk of the field and glows.'],
+    intro:'The ground opens. A mouth full of slag-teeth rises out of the Cinder Fields, big as a barn, hungry as a furnace.',
+    won:'The Maw cools into a cliff-face. The Cinder Fields cough out smoke and, somewhere, a bird sings.'},
+  hollow_king:{n:'The Hollow King',p:34,hpm:4.8,am:1.35,dm:1.4,r:'brute',xp:2,em:2,hv:'brings the crown down on you',
+    loot:[['crown',1],['obsidian',1,4,6],['potion3',1,1,2]],
+    pats:[{e:3,k:'drain',d:1,m:'Soul Drain. The Hollow King pulls the life out of you and heals',w:''},{e:5,k:'sonic',d:1.9,m:'The crown flares white and the air tears',w:'The crown starts to glow. A rift-strike is coming. Guard!'}],
+    ph:['The crown flares white. The air tears. He is faster now.','Alder\'s voice, underneath the rest: "Please."'],
+    intro:'The throne is empty, then it is not. The Hollow King stands, crowned in cracked voidglass, and the Rift behind him opens like a mouth.',
+    won:'The crown cracks. The Rift folds shut like a hand closing. The sky does not clear, not yet, but the ash has stopped falling.'},
+  reflection:{n:'The Reflection',p:38,hpm:4.4,am:1.1,dm:1.4,r:'skirm',xp:2,em:2,hv:'strikes you with your own sword',mirror:1,
+    loot:[['mirror',1,6,10],['moss',1,3,5],['potion3',1,1,2]],
+    pats:[{e:4,k:'multi',d:.6,m:'The Reflection strikes in the shape of your own best move',w:'It takes your stance. It is copying you. Guard!'},{e:5,k:'silence',d:.6,m:'The Reflection steals the words from your mouth',w:''}],
+    ph:['It stops copying you. It is correcting you.','Its face is almost yours now.'],
+    intro:'The fen goes mirror-flat. Your reflection climbs out of the water, wearing your gear, wielding your weapon, smiling a little more than you ever do.',
+    won:'The Reflection shatters. In every shard, for a moment, you are smiling back. Then the fen is water again.'},
+  choirmaster:{n:'The Choirmaster',p:42,hpm:4.6,am:1.3,dm:1.4,r:'caster',xp:2.1,em:2.1,hv:'strikes you with a baton',
+    loot:[['hymn',1,6,10],['mirror',1,3,5],['potion3',1,1,2]],
+    pats:[{e:3,k:'stun',d:.9,m:'The Choirmaster sings a note and your muscles forget how to move',w:'He lifts the baton. A held note is coming. Guard!'},{e:5,k:'drain',d:.9,m:'The chorus drinks from you in harmony',w:''}],
+    ph:['The hollow choir joins in. The walls hum.','One voice drops out. A worse one takes its place.'],
+    intro:'The hall is full of the choir, and none of them are breathing. At the front, baton raised, stands the Choirmaster. He has been waiting a long time for a soloist.',
+    won:'The Choirmaster lowers his baton. The hall holds its note a heartbeat longer than anything should, and then it lets go.'},
+  mainspring:{n:'The Mainspring',p:46,hpm:4.8,am:1.35,dm:1.4,r:'tank',xp:2.2,em:2.2,hv:'slams you',
+    loot:[['spring',1,6,10],['cog',1,4,8],['potion3',1,2,3]],
+    pats:[{e:3,k:'rewind',d:.8,m:'The Mainspring turns back time on its own wounds',w:''},{e:5,k:'beam',d:1.9,m:'A flywheel the size of a house sweeps across the floor',w:'Gears grind. A great flywheel is spinning up. Guard!'}],
+    ph:['Every wheel in the Deep spins faster.','The clock strikes thirteen.'],
+    intro:'The heart of the Clockwork Deep ticks a hundred feet above you: a coil the size of a tower, wound beyond bearing. It has been keeping the whole world from moving on.',
+    won:'The Mainspring unwinds with a sigh like a held breath. Somewhere above, for the first time in years, a clock strikes the hour.'},
+  sandglass:{n:'The Sandglass Colossus',p:51,hpm:4.8,am:1.4,dm:1.45,r:'tank',xp:2.3,em:2.3,hv:'slams you',
+    loot:[['gsand',1,8,12],['diamond',1,3,5],['potion3',1,2,3]],
+    pats:[{e:3,k:'burn',d:1.3,m:'The Colossus pours a torrent of scalding glass',w:''},{e:5,k:'multi',d:.7,m:'The Colossus hits three times, each like a falling roof',w:'Sand pours upward. A flurry is coming. Guard!'}],
+    ph:['Cracks race across it, glowing from inside.','It sheds glass and grows faster.'],
+    intro:'The dune rises. It is not a dune. The Sandglass Colossus lifts a head the shape of a cathedral, and the light in the glass behind its eyes moves like time.',
+    won:'The Colossus shatters into glittering gravel. The road through the desert opens.'},
+  ender_dragon:{n:'The Lastlight Wyrm',p:56,hpm:5,am:1.4,dm:1.5,r:'brute',xp:2.5,em:2.5,hv:'rakes you',
+    loot:[['dragon_scale',1,4,6],['diamond',1,3,5],['gapple',1,1,2],['potion3',1,2,3]],
+    pats:[{e:3,k:'breath',d:2,m:'The wyrm\'s breath rolls over you, violet and heavy',w:'The wyrm inhales. The air is dragged toward its jaws. Guard!'},{e:5,k:'multi',d:.7,m:'The wyrm rakes you three times, fast as lightning',w:''}],
+    ph:['The wyrm screams, and the lamps around the Spire burst one after another.','It is shedding light. It is not winning.'],
+    intro:'The top of the Spire opens onto a sky with no stars. The wyrm uncoils from the dark, and the last light in the world bends around its wings.',
+    won:'The wyrm comes down like a falling tower. The Spire goes quiet. Somewhere far off a Rift seals, and the wind, finally, changes direction.'},
+  quiet:{n:'The Quiet Between',p:60,hpm:6,am:1.5,dm:1.5,r:'caster',xp:3,em:3,hv:'unmakes you',
+    loot:[['lastlight',1,3,5],['void_ink',1,4,6],['starlight',1,4,6],['potion3',1,3,4]],
+    pats:[{e:3,k:'drain',d:1,m:'The Quiet takes a piece of you and keeps it',w:''},{e:4,k:'silence',d:.7,m:'The Quiet takes the words out of your mouth',w:''},{e:5,k:'sonic',d:2.2,m:'The Quiet closes, and everything that was you flinches',w:'Everything goes still. The Quiet is closing on you. Guard!'}],
+    ph:['The shore stops being a shore.','The Quiet speaks, once, in a voice made of everything you have lost.'],
+    intro:'There is nothing in front of you. There is nothing in front of you the way there is nothing in a sleeping mouth. Then the nothing leans in, and you understand that it has been in your head the whole way here.',
+    won:'The Quiet does not fall. It simply stops being in front of you. For a long moment there is only the sound of your own breath, which is, you realize, the first sound you have been glad of in months.'}
+};
+
+/* ================= ZONES ================= */
+const ZORD=['plains','village','forest','mines','tundra','rustyard','ruins','cinder','scar','fen','choir','clock','glass','spire','shore'];
+const ZONES={
+  camp:{n:'Ember Camp',desc:'The last lit fire for a hundred blocks.',arrive:'Ember Camp. Smoke, canvas, a kettle that never quite boils.'},
+  plains:{n:'Ashen Flats',lo:1,hi:4,act:1,desc:'Flat, grey, and loud with shamblers.',arrive:'Cracked earth runs to the horizon, split where a Rift tore through. Something groans downwind.',
+    enc:[['zombie',5],['pig',3],['spider',2],['crow',2],['creeper',1]],find:[['wood',4],['wheat',3],['apple',2],['stone',3],['coal',1],['string',1]],
+    flavor:['Brittle grass crunches underfoot.','Behind a snapped fence post you find a stash.','Wind has uncovered a seam of stone.'],ev:['chest','campfire','traveler','merchant','whisper'],
+    boss:{id:'tusk_mother',need:21,label:'Follow the squealing'}},
+  village:{n:'Quiet Hamlet',lo:3,hi:7,act:1,req:'tusk_mother',desc:'Doors hang open. Nobody answers.',arrive:'Cottages with their roofs peeled off. A bell somewhere keeps swinging.',
+    enc:[['skeleton',3],['pillager',3],['thrall',2],['hound',2],['zombie',2],['creeper',1]],find:[['wheat',3],['bread',2],['iron_ore',2],['wood',2],['string',2],['coal',1]],
+    flavor:['A cellar door still holds.','Someone packed in a hurry and left things behind.','The well house is picked clean, almost.'],ev:['chest','traveler','campfire','merchant','ruin','pilgrim'],
+    boss:{id:'hollow_reeve',need:27,label:'Answer the bell'}},
+  forest:{n:'Ghostwood',lo:6,hi:10,act:1,req:'hollow_reeve',desc:'Black trunks. Pale things in the branches.',arrive:'The trees are charcoal. Nothing has leaves. Nothing has birds.',
+    enc:[['weaver',3],['wisp',2],['bramble',2],['stag',2],['skeleton',2],['pillager',1]],find:[['wood',4],['berries',4],['mushroom',3],['string',2],['bone',2],['apple',1],['moss',2]],
+    flavor:['Lantern berries cling to a dead bramble.','A rotted hollow log yields something useful.','Webbing hangs thick between two trunks.'],ev:['shard','campfire','chest','altar','cabin','ruin','shrine'],
+    boss:{id:'mother_loom',need:30,label:'Follow the webs'}},
+  mines:{n:'Deep Works',lo:9,hi:13,act:1,req:'mother_loom',desc:'Lamplight, ore-cart tracks, and things in the dark.',arrive:'Ore-cart rails run into the dark. Your lamp makes a small, nervous circle.',
+    enc:[['miner',4],['skeleton',2],['creeper',2],['bat',2],['enderman',1],['pillager',1]],find:[['coal',4],['iron_ore',4],['stone',3],['mushroom',1],['diamond',.6],['bone',1],['gunpowder',1]],
+    flavor:['The vein glitters when you angle the lamp.','An abandoned cart is still half full.','You chip loose a clean piece.'],ev:['shaft','chest','shard','altar','ruin','trap'],
+    boss:{id:'warden',need:33,label:'Follow the silence'}},
+  tundra:{n:'Rime Barrens',lo:13,hi:17,act:2,req:'warden',desc:'Snow where there was never snow.',arrive:'White to the edge of sight. Your breath hangs in front of you like a ghost that will not leave.',
+    enc:[['stray',3],['frost_wolf',3],['icewretch',2],['yeti',2],['pillager',1],['enderman',1]],find:[['frost_core',3],['stone',2],['iron_ore',2],['bone',2],['raw_pork',1],['coal',1],['berries',1]],
+    flavor:['A rime crystal pulses blue under a skin of ice.','You chip a cache free of the drift.','The wind has scoured something loose.'],ev:['campfire','chest','shard','merchant','cabin','ruin','shrine'],
+    boss:{id:'hoarfang',need:33,label:'Follow the howling'}},
+  rustyard:{n:'Rustyard',lo:17,hi:21,act:2,req:'hoarfang',desc:'A graveyard of machines that never quite died.',arrive:'Heaps of rust rise like hills. Something is still running somewhere. You can hear it breathe.',
+    enc:[['drone',3],['golem',2],['rhound',3],['welder',2],['pillager',1]],find:[['iron_ore',3],['cog',3],['oil',3],['coal',2],['iron',1],['stone',1],['gunpowder',1]],
+    flavor:['A toolbox, still sealed, survived the rust.','You pry a clean cog out of a seized gearbox.','A cracked drum still holds a little oil.'],ev:['shaft','chest','trap','merchant','ruin'],
+    boss:{id:'overseer',need:36,label:'Face the lamp'}},
+  ruins:{n:'Sunken Quarter',lo:21,hi:25,act:2,req:'overseer',desc:'A city that came with its ocean.',arrive:'Streets run straight down into black water. A bell rings once, far below, and the sound takes a long time to arrive.',
+    enc:[['drowned',4],['guardian',2],['eel',3],['barnacle',2],['pillager',1]],find:[['prismarine',4],['salt',3],['iron_ore',2],['diamond',1],['coal',1],['string',1],['berries',1]],
+    flavor:['Tidal glass glows in a flooded archway.','A sealed vault gives under your shoulder.','Something has been through here recently and left this.'],ev:['chest','altar','merchant','shard','ruin','shrine'],
+    boss:{id:'ancient_guardian',need:39,label:'Wade toward the Lantern'}},
+  cinder:{n:'Cinder Fields',lo:25,hi:29,act:3,req:'ancient_guardian',desc:'Smoke and glass, and every footstep sounds like breaking.',arrive:'The ground is black and warm. Every few steps something underfoot ticks as it cools.',
+    enc:[['blaze',3],['hulk',2],['runner',3],['wither_skeleton',2],['pillager',1]],find:[['coal',3],['ember',3],['obsidian',3],['gunpowder',2],['iron_ore',2],['stone',1]],
+    flavor:['An ember core pulses in the ash.','You find a pocket of unburnt coal.','Obsidian glass, cooled into a pane.'],ev:['chest','trap','shard','altar','merchant','pilgrim'],
+    boss:{id:'cinder_maw',need:39,label:'Step onto the soft ground'}},
+  scar:{n:'The Scar',lo:29,hi:33,act:3,req:'cinder_maw',desc:'A wound in the world. The air tastes of copper.',arrive:'The ground ends in a seam of red light. Heat pours out of it. Every step is a decision.',
+    enc:[['leech',3],['hknight',2],['enderman',2],['rhound2',3],['wither_skeleton',2]],find:[['coal',3],['obsidian',3],['diamond',1],['gunpowder',2],['ember',2],['iron_ore',1]],
+    flavor:['Voidglass, cooled in the shape of a wave.','Something dropped this in a hurry.','The heat has baked a seam open.'],ev:['shard','shaft','altar','whisper','trap'],
+    boss:{id:'hollow_king',need:42,label:'Descend to the Hollow Throne'}},
+  fen:{n:'Mirror Fen',lo:33,hi:37,act:4,req:'hollow_king',desc:'The water shows you things.',arrive:'The fen is flat as glass for miles. Your reflection is a half-second late.',
+    enc:[['mimic',3],['hag',3],['bogt',2],['marshwisp',2],['leech',1]],find:[['mirror',4],['moss',3],['mushroom',2],['berries',2],['salt',2],['bone',1]],
+    flavor:['A mirror shard glints at the bottom of a pool.','You pick a clean handful of glimmer moss.','A reed-basket holds more than reeds.'],ev:['whisper','chest','ruin','shrine','altar','trap'],
+    boss:{id:'reflection',need:39,label:'Look into the water'}},
+  choir:{n:'Choir Halls',lo:37,hi:41,act:4,req:'reflection',desc:'The singing never stops. Nobody is breathing.',arrive:'Great vaulted halls of black stone. The walls hum a note you cannot place and cannot stop hearing.',
+    enc:[['chorister',3],['bknight',2],['shade',3],['cherub',2],['hknight',1]],find:[['hymn',4],['mirror',2],['iron',2],['moss',1],['bone',2],['string',1]],
+    flavor:['A hymn bell lies in the dust, still faintly humming.','A choir-book, chained to its stand. A few pages came free.','The pews are full of old coin.'],ev:['chest','ruin','pilgrim','shrine','altar','whisper'],
+    boss:{id:'choirmaster',need:39,label:'Take the solo'}},
+  clock:{n:'Clockwork Deep',lo:41,hi:45,act:4,req:'choirmaster',desc:'Ticking, ticking, ticking. Nothing is late. Nothing is early.',arrive:'The air tastes of oil. The walls are gears, and they turn, and they never get anywhere.',
+    enc:[['sentry',3],['mite',2],['golem',2],['tick',3],['bknight',1]],find:[['spring',3],['cog',3],['oil',3],['iron',2],['gunpowder',1],['hymn',1]],
+    flavor:['A mainspring offcut, still tight.','A clean spring coil clicks into your palm.','A cracked casing yields a good cog.'],ev:['trap','chest','merchant','ruin','whisper','shrine'],
+    boss:{id:'mainspring',need:39,label:'Climb to the Mainspring'}},
+  glass:{n:'Glass Desert',lo:45,hi:50,act:5,req:'mainspring',desc:'Every grain is a tiny lens. The sun is everywhere.',arrive:'Dunes of glittering glass. The light is brutal. The wind sings through shards.',
+    enc:[['scorp',3],['shulker',2],['sandw',3],['dunew',2],['shade',1]],find:[['gsand',4],['salt',2],['diamond',1],['obsidian',2],['spring',1]],
+    flavor:['A glass-blown idol, intact.','A caravan wreck gives up a strongbox.','The wind has uncovered a vein of pure glass sand.'],ev:['chest','pilgrim','shrine','trap','ruin','merchant'],
+    boss:{id:'sandglass',need:39,label:'Wake the dune'}},
+  spire:{n:'Lastlight Spire',lo:50,hi:55,act:5,req:'sandglass',desc:'A tower with no base and no top. The sky around it is wrong.',arrive:'Voidglass pillars rise out of nothing. The wind comes from every direction and none. Something tall and patient watches from the top.',
+    enc:[['acolyte',3],['enderman',2],['shulker',2],['vhound',3],['dunew',1]],find:[['starlight',3],['obsidian',3],['diamond',1.5],['pearl',2],['gsand',1],['void_ink',1]],
+    flavor:['Someone cached a smoke bomb in a crack in the stone.','The void tugs something loose and drops it at your feet.','A broken lamp still holds a spark.'],ev:['shard','altar','chest','whisper','pilgrim','trap'],
+    boss:{id:'ender_dragon',need:39,label:'Climb to the Wyrm'}},
+  shore:{n:'The Starless Shore',lo:55,hi:59,act:6,req:'ender_dragon',desc:'The place beyond the Door. The tide never decides.',arrive:'Black sand, black water, a sky like a pupil. The tide comes in, goes out, comes in, and never touches the shore.',
+    enc:[['hollow',3],['tide',2],['eye',3],['fade',3],['vhound',1]],find:[['void_ink',3],['starlight',3],['diamond',1],['lastlight',.4],['pearl',1]],
+    flavor:['A glimmer under the black sand.','The tide leaves something behind, then takes it back.','Starlight pools in a shell.'],ev:['whisper','shard','chest','altar','trap'],
+    boss:{id:'quiet',need:36,label:'Step into the Quiet'}}
+};
+const WX=[['Clear','Clear skies.'],['Ashfall','Ash falls like grey snow.'],['Fog','A thick fog muffles everything.'],['Storm','A storm rolls over the sky.']];
+const PHASES=['Dawn','Morning','Midday','Afternoon','Dusk','Evening','Night','Deep night'];
+
+/* ================= STORY ================= */
+const NPCN={mara:'Mara',bran:'Bran',odo:'Brother Odo',tamsin:'Tamsin',cog:'Cog',ilsa:'Ilsa',kest:'Kest',lumen:'Lumen'};
+const COMP={
+  odo:{n:'Brother Odo',role:'Healer',d:'Every third turn, mends you for a share of your max HP.'},
+  tamsin:{n:'Tamsin',role:'Archer',d:'Looses an arrow every turn that ignores armor.'},
+  cog:{n:'Cog',role:'Guardian',d:'Takes a share of every blow, and sometimes draws the whole attack.'},
+  ilsa:{n:'Ilsa',role:'Tide-seer',d:'Marks the enemy for extra damage and washes poison from you.'},
+  kest:{n:'Kest',role:'Knight',d:'Counters when you guard, with a heavy sword-stroke.'},
+  lumen:{n:'Lumen',role:'Light-spirit',d:'Feeds you focus every turn and bends the light around you.'}
+};
+const BOND=[0,8,24,60,120];
+
+/* ---- scenes: l lines, c choices {t,l,e,if}, e effects ---- */
+const SC={
+ s_intro:{l:[
+  `The camp is a ring of tents around a fire somebody has fed for months. The ash falls on everything and nobody brushes it off any more.`,
+  `A woman with a ledger under her arm studies you the way you would study a door you are about to open.`,
+  `Mara: "You are awake. Good. I am Mara. I count the food, the beds, and the dead, in that order. Where did you come from?"`],
+  c:[{t:'I scavenged, mostly.',l:[`Mara: "Then you know what a locked door is worth. Good."`],e:{f:'bg_scav',it:{ration:2}}},
+     {t:'I carried a weapon for somebody.',l:[`Mara: "Then you know what you are worth when they stop paying. Good."`],e:{f:'bg_sold'}},
+     {t:'I read. I kept records.',l:[`Mara: "A reader. Do not tell the raiders. They burn those first."`],e:{f:'bg_schol'}}],
+  e:{q:'m1',lore:'mara'}},
+ m1d:{l:[`Mara counts the hides without looking at you.`,`Mara: "Six. Good. The camp sleeps one night easier. Now you are on the ledger."`]},
+ m2d:{l:[`Mara hangs the cord herself, tying each knot twice.`,`Mara: "The nets will hold. Barely. Everything holds barely, here."`]},
+ m3a:{l:[`The forge is a trench of coals under a canvas roof. A man the size of a doorway looks up from the anvil.`,`Bran: "You are the new one. Mara says you can fetch iron. I say show me."`]},
+ m3d:{l:[`Bran turns each bar in the light, once, like a jeweler.`,`Bran: "Good steel. Good hands. My forge is yours whenever you have the iron and the patience."`],e:{bld:['forge',1],f:'bran',lore:'bran'}},
+ m4a:{l:[`Mara: "A boar the size of a cart took the hunting party. They are not coming back. Neither will the food, unless it does."`]},
+ m4d:{l:[`You drag a tusk the length of your arm back into camp. Mara studies it for a long time.`,`Mara: "There is a village east. The Quiet Hamlet. Nobody who went there has come back. Maybe somebody is still there to be found."`]},
+ arr_village:{l:[`Doors hang open. Laundry still on the lines, stiff with ash. Somewhere above you a bell swings with no wind.`,`A thin voice from the tower: Odo: "If you are not hollow, could you say something? I have been counting my own breaths for three days."`]},
+ m5d:{l:[`A man in a patched habit climbs down the bell-tower ladder, bruised and, impossibly, cheerful.`,`Odo: "Brother Odo. I rang the bell. They walked out singing, all of them, and I thought it was a procession. It was not a procession."`,`Odo: "Take me with you. I can bandage. I can pray. I am a very poor shot, but I am an enthusiastic one."`],e:{comp:'odo',lore:'odo'}},
+ m6a:{l:[`Odo: "The Reeve is still down there, under the bell. Forty years I knew him. If he is still in there, I want to hear it from him."`]},
+ m6d:{l:[`The Reeve\'s staff splinters on the cobbles. The bell above you goes still, finally, mid-swing.`,`Odo kneels by the body a long while, lips moving.`],
+  c:[{t:'Give him all the time he needs.',l:[`Odo: "Thank you. He was a hard man. He was kind, once. I think the kindness was the last thing to go."`],e:{bond:['odo',12],f:'odo_warm'}},
+     {t:'Hurry him along. The Wood is next.',l:[`Odo gets up without a word and follows. He will not look at you for a while.`],e:{f:'odo_cold'}}]},
+ arr_forest:{l:[`The trees are charcoal. Nothing has birds.`,`Pinned to a trunk with a rusted knife is a page torn from a ledger: LAMPLIGHTERS. NIGHT WATCH. DO NOT LET THE LAMP GO OUT.`],e:{page:1,lore:'lamplighters'}},
+ m7d:{l:[`In a hollow log, a satchel, and a name burned into the leather: TAMSIN VEY.`,`Behind you a bowstring creaks.`,`Tamsin: "You scavenging my stash, or were you going to say hello?"`],
+  c:[{t:'Hand it back. It is yours.',l:[`Tamsin lowers the bow a little. Tamsin: "Huh. Honest. That is a bad habit out here. I will take it, though."`],e:{comp:'tamsin',bond:['tamsin',10],f:'tamsin_trust'}},
+     {t:'Offer to split it.',l:[`Tamsin: "Split it? You are either a fool or a raider." She grins. "Lucky for you I like both."`],e:{comp:'tamsin',f:'tamsin_split'}}]},
+ m8d:{l:[`You cut a spool of loomsilk out of the dead web. It hums against your palm like a plucked string.`,`Mara runs it through her fingers and says nothing for a good minute.`,`Mara: "My grandmother wove with this. She said the first thread of the world was spider-silk. I thought it was a story."`]},
+ m9a:{l:[`Mara: "A signal horn keeps blowing from the Works. Three short, one long. Miners\' code. Trapped. Alive. Go find them."`]},
+ m9d:{l:[`Behind a collapsed shaft: three miners, grey-faced, alive. None of them will speak above a whisper.`,`Miner: "It listens. Whatever is down there, it listens. Do not make noise. Do not make a sound. Please."`]},
+ m10a:{l:[`Mara: "Whatever is under the Works, it is why the horn blew. Put it down. Quietly, if you can."`]},
+ m10d:{l:[`Where the Hush stood, a lantern lies in the dust. Old brass, tall as your forearm, the glass cracked, the wick cold.`,`Mara goes very pale. Mara: "That is a Lamplighter lantern."`],
+  c:[{t:'Ask her what the Lamplighters were.',l:[
+     `Mara: "I was an apprentice. They kept lamps lit in places the dark wanted. Every Rift you have seen, the first thing it ate was a lamp."`,
+     `Mara: "Then they started to go out, one by one, and nobody could say why. I have been doing the ledger of what is left ever since."`],e:{f:'mara_told',lore:'lamplighters2'}},
+    {t:'Say nothing. Hand her the lantern.',l:[`Mara takes it like it is a sleeping child. Mara: "Thank you. I will tell you someday. Not today."`],e:{f:'mara_quiet'}}],
+  e:{it:{potion2:2},xp:60}},
+ // ---- Act II
+ m11a:{l:[`Mara: "The Barrens froze solid the night the first Rift opened. A Lamplighter outpost sat in the middle of it. If their lamp is still lit, it will be the only thing that is."`]},
+ m11d:{l:[`The outpost is a half-buried tower, a single door locked with a Lamplighter seal. Frost has welded it shut.`],
+  c:[{t:'Force the door. Time matters.',l:[`The seal screams and gives. Inside, the lamp is out. Whatever was in here is gone.`],e:{f:'outpost_force',it:{potion2:1}}},
+     {t:'Thaw it slowly with fire.',l:[`It takes an hour, but the seal opens without breaking. The lamp inside is dark but whole. A note beside it: "Keep it lit."`],e:{f:'outpost_thaw',page:1,it:{ward:2}}}]},
+ m12d:{l:[`Hoarfang\'s breath goes out. The snow falls straight for the first time since you arrived.`,`Mara, by lamp-light, back at camp: "The Barrens were hunting grounds. The Lamplighters stocked them. Somebody has to restock."`]},
+ m13a:{l:[`Mara: "Rustyard. Somebody built a smelter there before the Breaking. Machines. Still running. Be careful of anything that hums."`]},
+ arr_rustyard:{l:[`Rust-red hills of broken machines. A clang, then a click, then a polite, mechanical voice.`,`"Observation: you are alive. Observation: I am confused. Please advise."`]},
+ m13d:{l:[`Under a collapsed crane: a bronze automaton, eyes dim, one arm missing, a Lamplighter sigil stamped on its chest.`,`Cog: "Designation: Lamp-Tender Nine. Directive: keep the lamp lit. Status: lamp is out. Observation: I do not know what to do now."`],
+  c:[{t:'Take Cog with you. There is a lamp that needs tending.',l:[`Cog: "Observation: this is a better directive. Acknowledged. Thank you."`],e:{comp:'cog',bond:['cog',10],f:'cog_kind'}},
+     {t:'Repair Cog first, then recruit it.',l:[`It takes an hour and half your oil. Cog flexes its new arm. Cog: "Observation: it is good to move."`],e:{comp:'cog',bond:['cog',6],f:'cog_repaired'}}]},
+ m14d:{l:[`The Overseer\'s lamp dims. Behind it, an access plate falls open, revealing a fused core.`],
+  c:[{t:'Salvage the core for parts.',l:[`The core still hums in your hand. Cog turns away.`],e:{f:'overseer_salvage',it:{cog:6,oil:4}}},
+     {t:'Reboot it. Let it be a workshop again.',l:[`The Overseer\'s plates settle. Machines across the yard stir, and begin, slowly, to repair each other.`],e:{f:'overseer_reboot',bond:['cog',12],em:200}}]},
+ m15a:{l:[`Mara: "The Sunken Quarter. A city that came through a Rift with its ocean. Somebody lives there. I know because they still ring the tide-bell at dusk."`]},
+ arr_ruins:{l:[`The streets run straight down into black water. Somewhere below, a bell rings once.`,`A woman rows out of the dusk in a canoe made of door-frames. Ilsa: "You are late. The tide was due an hour ago."`]},
+ m15d:{l:[`Ilsa leans on her oar and looks at you without blinking.`,`Ilsa: "My city drowned on a Thursday. I have been looking for someone who can tell the tide what to do ever since."`,`Ilsa: "You may have to do."`],e:{comp:'ilsa',lore:'ilsa'}},
+ m16d:{l:[`The Drowned Lantern goes dark. For the first time in a long time the tide simply comes in and goes out.`,`Mara, by the fire, almost smiling: "Three lamps lit, or put to rest. The way to the Scar is open."`,`Mara: "I should tell you something about the Scar before you go. But not tonight. Rest."`],e:{lore:'actII_end'}},
+ // ---- Act III
+ m17a:{l:[`Mara: "The Cinder Fields are the way to the Scar. Something up there has been burning for a year. I want to know what."`]},
+ arr_cinder:{l:[`Black earth, glass-smooth, warm underfoot. Every few steps something ticks as it cools.`]},
+ m17d:{l:[`A man in cracked plate armor hangs from a gallows of fused slag, wrists chained, head bowed. The crest on his chest is a crown.`,`Kest: "Cut me down. Please. I will not run. I have nowhere to run to."`],
+  c:[{t:'Cut him down. Ask questions after.',l:[`Kest drops to his knees and breathes for a minute. Kest: "I served the King. I want to serve the man he was. Take me."`],e:{comp:'kest',bond:['kest',10],f:'kest_freed'}},
+     {t:'Question him first.',l:[`Kest, through his teeth: "His name was Alder. He saved my village once. He would not want you to hurt him, but he would want you to stop him. Both are true."`,`You cut him down.`],e:{comp:'kest',f:'kest_questioned'}}]},
+ m18d:{l:[`You bring Mara a handful of ember cores. She puts them down, one by one, like chess pieces.`,`Mara: "The Hollow King on the Scar. He was a Lamplighter. His name was Alder. He was my brother."`,`Mara: "When the lamps began to go out, he made a crown to hold what they could not. He put it on to save us. I thought I could hear him in it for months."`,`Mara: "I need you to end it. I have needed someone to end it for a year. I have not been able to ask."`],e:{f:'knows_alder',lore:'alder'}},
+ arr_scar:{l:[`The ground ends in a seam of red light. Heat pours out of it. Every step is a decision.`,`Kest, quietly: "It is not far to the throne. I will not fight him. I will stand beside you. That is all I can promise."`]},
+ m20d:{l:[`The crown cracks. Alder collapses onto the throne, a man again for the length of one breath: grey, thin, younger than you expected.`,`Alder: "Mara\'s kid? No. Not Mara\'s. Who are you?" He looks past you at the Rift. "It is not finished. It is not finished with any of us."`],
+  c:[{t:'End it. Mara asked.',l:[`You do it quickly. Alder\'s smile, as he goes, is the first kind thing the Scar has shown you.`],e:{f:'king_slain',lore:'b_hollow_king',echo:10}},
+     {t:'Take the crown. It could be a weapon.',l:[`The crown is cold, then it is not. It does not fit you. It tries to.`,`Kest: "Put it down. Please. I watched him put it on."`],e:{f:'king_crown',it:{crown:1},echo:5}},
+     {t:'Spare him. Carry him back to Mara.',l:[`Kest lifts Alder like a child. Alder does not fight. The Rift behind the throne closes, then opens again, wider, under your feet.`],e:{f:'king_spared',bond:['kest',20],echo:15}}]},
+ // ---- Act IV
+ m21a:{l:[`The floor of the Scar has opened. Below it, a flat grey fen that does not belong to any country. A way down.`]},
+ arr_fen:{l:[`The fen is flat as glass for miles. Your reflection is a half-second late. Then, a full second.`,`In the water: faces. People you knew. People who never lived. Ilsa murmurs, "Do not look at them. They are not looking at you. They are looking through you."`]},
+ m21d:{l:[`A pool as still as a mirror. A hand reaches out of it, and the hand is yours.`,`Your reflection, rising: "You know what you are, don\'t you? You have died more than once. You woke up each time with the same face. That is not luck. That is a lamp."`,`Reflection: "You are a Wick. You carry the light. Every death you relight. That is why the Quiet wants you."`],e:{f:'wick_told',lore:'wick'}},
+ m22d:{l:[`The Reflection shatters. In every shard, for a moment, you are smiling back.`]},
+ arr_choir:{l:[`Great vaulted halls of black stone. The walls hum a note you cannot place and cannot stop hearing.`,`Odo goes quiet. Odo: "Those are the Hamlet\'s hymns. That is my choir. Every one of them."`]},
+ m23d:{l:[`Row on row of villagers sit in the pews, mouths open, singing, no breath behind it.`,`Odo, voice breaking: "Please. I cannot take them home. But I can stop the song."`],
+  c:[{t:'Let Odo ring them out, one bell at a time.',l:[`He rings a bell in the old rhythm. One by one, the choir exhales and goes still, smiling.`],e:{f:'choir_freed',bond:['odo',20],echo:8}},
+     {t:'Silence them. Quickly.',l:[`The hall falls silent in a hard breath. Odo does not forgive you for a while.`],e:{f:'choir_silenced',bond:['odo',-4]}}]},
+ m24d:{l:[`The Choirmaster lowers his baton. The hall holds its note a heartbeat longer than anything should, and lets go.`]},
+ arr_clock:{l:[`The air tastes of oil. The walls are gears, and they turn, and they never get anywhere.`,`Cog, in a low voice: "Observation: this is where I was built. Observation: I did not know until now."`]},
+ m26d:{l:[`The Mainspring: a coil the size of a tower, wound far beyond what any spring should bear. Every clock in the Deep ticks in time with its beat.`,`Cog: "Directive conflict. Wind: preserve the world. Unwind: end the stoppage. I cannot choose. You must."`],
+  c:[{t:'Unwind it. Time should move on.',l:[`The Mainspring sighs. Somewhere above, a clock strikes the hour for the first time in years. Cog stands very still, then very straight.`],e:{f:'spring_unwound',bond:['cog',16],echo:10}},
+     {t:'Wind it. The world is safer held.',l:[`The Mainspring tightens. The ticking steadies. Cog turns away. Cog: "Observation: safe. Observation: not the same as free."`],e:{f:'spring_wound',bond:['cog',-4],echo:6}}]},
+ // ---- Act V
+ arr_glass:{l:[`Dunes of glittering glass. The light is brutal. The wind sings through a thousand shards.`,`A line of pilgrims in white, walking east, not looking at you.`]},
+ m27d:{l:[`An old pilgrim lets you share her water.`,`Pilgrim: "We are walking to the Spire. Every lamp that went out, we ask forgiveness. It is a long walk. Somebody has to ask."`,`Pilgrim: "Do you know what the Lamplighters did? No? Neither do we. That is why we walk."`]},
+ m28d:{l:[`The Colossus comes down in a rain of glittering gravel. The pilgrims, without a word, kneel and begin to sweep.`]},
+ arr_spire:{l:[`Voidglass pillars rise out of nothing. Something tall and patient watches from the top.`]},
+ m29d:{l:[`The Spire\'s lowest hall is an archive. Cabinets of ledgers, ranks of dead lamps, a single desk with a single chair.`,`On the desk, a journal, last entry still wet: WE OPENED THE DOOR ON PURPOSE. WE ONLY WANTED TO LOOK.`,`Mara, who has come this far and says nothing, finally: "I knew. I have always known. I could not say it out loud until somebody else read it."`],e:{f:'truth_known',lore:'truth',page:2}},
+ m30d:{l:[`The wyrm comes down like a falling tower. The Spire goes quiet.`,`In the silence the Door opens, slowly, the way a mouth opens before it speaks.`,`Mara: "There is nothing I can tell you now that will help. Go. I will keep the fire."`],e:{lore:'b_ender_dragon'}},
+ // ---- Act VI
+ arr_shore:{l:[`Black sand, black water, a sky like a pupil. The tide comes in, goes out, comes in, and never touches the shore.`]},
+ m31d:{l:[`The beach is covered in footprints. Every one is yours.`,`Lumen, pressed to your collar, flickers: *it knows you.*`]},
+ end_scene:{l:[`The Quiet is not an enemy and it is not a god. It is what is left when everything else has stopped asking for something.`,`It does not speak. You hear, in your own voice: "You can keep me out, or let me in, or become me. Or you can ask what I wanted all along."`],
+  c:[{t:'Relight. Seal the Door with your own light.',l:[`Light pours out of you and into the Door. It closes, slow and gentle as a held breath. You are still here, thinner, brighter. You will wake again.`],e:{f:'end_relight',echo:40,title:'Wick'}},
+     {t:'Kindle. Take the Quiet into yourself.',l:[`You open your arms. The Quiet folds in, and you carry it. The sky is still the wrong color, but it is only a sky now.`],e:{f:'end_kindle',echo:40,title:'Hollowbearer'}},
+     {t:'Open the Door. Listen to what it wanted.',l:[`You open the Door the rest of the way. What comes through is not a monster. It is a very old, very quiet question. You answer it.`],e:{f:'end_open',echo:40,title:'Doorkeeper'}},
+     {t:'Ask all of them to stand with you.',if:'allComps',l:[`One by one, they come to stand beside you: Odo, Tamsin, Cog, Ilsa, Kest, and Lumen on your shoulder. The Quiet looks at the six lights and, for the first time in forever, does not look away.`,`The Door does not close and does not open. It simply becomes a doorway, and people walk through it, both ways, and it is not a wound any more.`],e:{f:'end_together',echo:80,title:'Lightbearer'}}]},
+ // ---- companion quest scenes
+ co1:{l:[`Odo, setting out a row of bones: "Chimes. For the dead. The old rite says a wind-chime keeps the lost from wandering. I am making a great many chimes."`]},
+ co1d:{l:[`The chimes ring, thin and sweet, in the ash-wind. Odo: "There. Now at least they know the way home."`],e:{bond:['odo',20]}},
+ co2d:{l:[`In the hamlet\'s oldest barn you find the founding bell, cracked but sound. Odo strikes it once and weeps.`,`Odo: "Thank you. I think I can ring it again."`],e:{bond:['odo',25]}},
+ ta1d:{l:[`Tamsin, setting down her bow: "Six raiders. Six of my old crew. I would be lying if I said it felt like justice."`,`Tamsin: "It felt like paying a bill. Ready for the next one?"`],e:{bond:['tamsin',20]}},
+ ta2d:{l:[`Tamsin traces a rune on the stock of her bow. Tamsin: "I taught myself to read just to know what that said. It says: aim true. That is all. Twenty years of running, and the last thing a stranger told me was that."`],e:{bond:['tamsin',25]}},
+ cg1d:{l:[`Cog drinks the oil with solemn care. Cog: "Observation: lubrication is a form of kindness."`],e:{bond:['cog',20]}},
+ cg2d:{l:[`Deep in the Rustyard, a lamp shell the size of a coffin. Cog kneels. Cog: "Ninth Lamp. My Lamp. Observation: it is empty. Observation: I am not."`],e:{bond:['cog',25]}},
+ il1d:{l:[`Ilsa pours salt into the black water, slowly, one fistful at a time.`,`Ilsa: "For every house the sea took. It does not bring them back. It does let them rest."`],e:{bond:['ilsa',20]}},
+ il2d:{l:[`The drowned bells fall silent. Ilsa lets out a breath that sounds like a wave going out.`,`Ilsa: "Thank you. For the bells. For the quiet. I have been asking the tide to listen for years."`],e:{bond:['ilsa',25]}},
+ ke1d:{l:[`Kest cleans his sword slowly. Kest: "The Hollow Knights were my brothers-in-arms. I wanted to be the one to end them. I was not strong enough to do it alone."`],e:{bond:['kest',20]}},
+ ke2d:{l:[`On the Scar\'s edge, a sword stuck in the black glass. Alder\'s. Kest takes it, wipes the blade, and for a moment looks young.`,`Kest: "I will carry it, until somebody better comes along."`],e:{bond:['kest',25]}},
+ lu1d:{l:[`Lumen drinks the ember core\'s warmth and brightens until the whole tent glows.`,`*it likes the taste*, you decide, with no way to be sure.`],e:{bond:['lumen',20]}},
+ lu2d:{l:[`Lumen drifts up the Spire\'s side, round and round, until it is a tiny bright spiral of light. It comes back, lands on your sleeve, and stays.`],e:{bond:['lumen',25]}}
+};
+
+/* ---- quests ---- */
+// o: objective. k: kill{m,n} | have{i,n} | explore{z,n} | reach{z} | delve{n} | build{b,l} | gear{t} | lvl{n} | stat{s,n} | pages{n}
+const QUESTS=[
+ {id:'m1',t:'main',who:'mara',title:'Thin the Shamblers',o:{k:'kill',m:'zombie',n:6},rw:{em:20,xp:40,items:{bread:3}},sd:'m1d'},
+ {id:'m2',t:'main',who:'mara',title:'Cord for the Nets',req:['m1'],o:{k:'have',i:'string',n:4},rw:{em:25,xp:50},sd:'m2d'},
+ {id:'m3',t:'main',who:'bran',title:'Forge Work',req:['m2'],o:{k:'have',i:'iron',n:3},rw:{em:35,xp:70},sa:'m3a',sd:'m3d'},
+ {id:'m4',t:'main',who:'mara',title:'The Tusk-Mother',req:['m3'],o:{k:'kill',m:'tusk_mother',n:1},rw:{em:60,xp:120,items:{potion:2}},sa:'m4a',sd:'m4d'},
+ {id:'m5',t:'main',who:'mara',title:'The Bell on the Wind',req:['m4'],o:{k:'explore',z:'village',n:6},rw:{em:60,xp:140},sd:'m5d'},
+ {id:'m6',t:'main',who:'odo',title:'The Hollow Reeve',req:['m5'],o:{k:'kill',m:'hollow_reeve',n:1},rw:{em:90,xp:220,items:{potion:2}},sa:'m6a',sd:'m6d'},
+ {id:'m7',t:'main',who:'mara',title:'What the Trees Took',req:['m6'],o:{k:'explore',z:'forest',n:8},rw:{em:100,xp:260},sd:'m7d'},
+ {id:'m8',t:'main',who:'mara',title:'Mother Loom',req:['m7'],o:{k:'kill',m:'mother_loom',n:1},rw:{em:140,xp:380,items:{potion2:1}},sd:'m8d'},
+ {id:'m9',t:'main',who:'mara',title:'The Signal',req:['m8'],o:{k:'explore',z:'mines',n:8},rw:{em:160,xp:420},sa:'m9a',sd:'m9d'},
+ {id:'m10',t:'main',who:'mara',title:'Silence the Hush',req:['m9'],o:{k:'kill',m:'warden',n:1},rw:{em:300,xp:700,items:{potion2:2}},sa:'m10a',sd:'m10d'},
+ // Act II
+ {id:'m11',t:'main',who:'mara',title:'Frozen Hearts',req:['m10'],o:{k:'have',i:'frost_core',n:6},rw:{em:260,xp:800},sa:'m11a'},
+ {id:'m12',t:'main',who:'mara',title:'The Lamp-Keeper\'s Outpost',req:['m11'],o:{k:'explore',z:'tundra',n:8},rw:{em:300,xp:900},sd:'m11d'},
+ {id:'m13',t:'main',who:'mara',title:'Hoarfang',req:['m12'],o:{k:'kill',m:'hoarfang',n:1},rw:{em:400,xp:1200,items:{potion2:2}},sd:'m12d'},
+ {id:'m14',t:'main',who:'mara',title:'Cog and Wire',req:['m13'],o:{k:'explore',z:'rustyard',n:8},rw:{em:420,xp:1300},sa:'m13a',sd:'m13d'},
+ {id:'m15',t:'main',who:'cog',title:'The Overseer',req:['m14'],o:{k:'kill',m:'overseer',n:1},rw:{em:550,xp:1700,items:{potion2:2}},sd:'m14d'},
+ {id:'m16',t:'main',who:'mara',title:'Tidebell',req:['m15'],o:{k:'explore',z:'ruins',n:8},rw:{em:600,xp:1900},sa:'m15a',sd:'m15d'},
+ {id:'m17',t:'main',who:'ilsa',title:'The Drowned Lantern',req:['m16'],o:{k:'kill',m:'ancient_guardian',n:1},rw:{em:800,xp:2400,items:{potion3:1}},sd:'m16d'},
+ // Act III
+ {id:'m18',t:'main',who:'mara',title:'Cinder Road',req:['m17'],o:{k:'explore',z:'cinder',n:8},rw:{em:800,xp:2600},sa:'m17a',sd:'m17d'},
+ {id:'m19',t:'main',who:'mara',title:'Lamp Oil',req:['m18'],o:{k:'have',i:'ember',n:6},rw:{em:700,xp:2800},sd:'m18d'},
+ {id:'m20',t:'main',who:'kest',title:'The Cinder Maw',req:['m19'],o:{k:'kill',m:'cinder_maw',n:1},rw:{em:1000,xp:3400,items:{potion3:1}}},
+ {id:'m21',t:'main',who:'mara',title:'The Scar',req:['m20'],o:{k:'explore',z:'scar',n:10},rw:{em:1100,xp:3600}},
+ {id:'m22',t:'main',who:'mara',title:'Seal the Rift',req:['m21'],o:{k:'kill',m:'hollow_king',n:1},rw:{em:1500,xp:5000,items:{potion3:2}},sd:'m20d'},
+ // Act IV
+ {id:'m23',t:'main',who:'mara',title:'Below the Scar',req:['m22'],o:{k:'explore',z:'fen',n:8},rw:{em:1400,xp:5000},sa:'m21a',sd:'m21d'},
+ {id:'m24',t:'main',who:'ilsa',title:'The Reflection',req:['m23'],o:{k:'kill',m:'reflection',n:1},rw:{em:1800,xp:6000,items:{potion3:1}},sd:'m22d'},
+ {id:'m25',t:'main',who:'odo',title:'The Hymn Halls',req:['m24'],o:{k:'explore',z:'choir',n:8},rw:{em:1800,xp:6400},sd:'m23d'},
+ {id:'m26',t:'main',who:'odo',title:'The Choirmaster',req:['m25'],o:{k:'kill',m:'choirmaster',n:1},rw:{em:2200,xp:7600,items:{potion3:2}},sd:'m24d'},
+ {id:'m27',t:'main',who:'cog',title:'The Clockwork Deep',req:['m26'],o:{k:'explore',z:'clock',n:8},rw:{em:2200,xp:8000}},
+ {id:'m28',t:'main',who:'cog',title:'The Mainspring',req:['m27'],o:{k:'kill',m:'mainspring',n:1},rw:{em:2800,xp:9500,items:{potion3:2}},sd:'m26d'},
+ // Act V
+ {id:'m29',t:'main',who:'mara',title:'Pilgrim Road',req:['m28'],o:{k:'explore',z:'glass',n:8},rw:{em:2800,xp:10000},sd:'m27d'},
+ {id:'m30',t:'main',who:'mara',title:'The Sandglass Colossus',req:['m29'],o:{k:'kill',m:'sandglass',n:1},rw:{em:3500,xp:12000,items:{potion3:2}},sd:'m28d'},
+ {id:'m31',t:'main',who:'mara',title:'The Foot of the Spire',req:['m30'],o:{k:'explore',z:'spire',n:8},rw:{em:3500,xp:12500},sd:'m29d'},
+ {id:'m32',t:'main',who:'mara',title:'The Lastlight Wyrm',req:['m31'],o:{k:'kill',m:'ender_dragon',n:1},rw:{em:5000,xp:16000,items:{potion3:3}},sd:'m30d'},
+ // Act VI
+ {id:'m33',t:'main',who:'lumen',title:'Beyond the Door',req:['m32'],o:{k:'explore',z:'shore',n:6},rw:{em:4000,xp:18000},sd:'m31d'},
+ {id:'m34',t:'main',who:'mara',title:'The Quiet Between',req:['m33'],o:{k:'kill',m:'quiet',n:1},rw:{em:8000,xp:30000,items:{potion3:4},echo:50},sd:'end_scene'},
+ // Companion quests
+ {id:'c1',t:'comp',who:'odo',title:'Bone Chimes',req:['m5'],o:{k:'have',i:'bone',n:10},rw:{em:60,xp:150},sa:'co1',sd:'co1d'},
+ {id:'c2',t:'comp',who:'odo',title:'The Founding Bell',req:['c1','m8'],o:{k:'explore',z:'village',n:6},rw:{em:140,xp:400},sd:'co2d'},
+ {id:'c3',t:'comp',who:'tamsin',title:'Old Debts',req:['m7'],o:{k:'kill',m:'pillager',n:8},rw:{em:120,xp:300},sd:'ta1d'},
+ {id:'c4',t:'comp',who:'tamsin',title:'Aim True',req:['c3','m10'],o:{k:'kill',m:'skeleton',n:20},rw:{em:260,xp:700},sd:'ta2d'},
+ {id:'c5',t:'comp',who:'cog',title:'Oil and Memory',req:['m14'],o:{k:'have',i:'oil',n:6},rw:{em:300,xp:900},sd:'cg1d'},
+ {id:'c6',t:'comp',who:'cog',title:'The Ninth Lamp',req:['c5','m15'],o:{k:'explore',z:'rustyard',n:6},rw:{em:500,xp:1500},sd:'cg2d'},
+ {id:'c7',t:'comp',who:'ilsa',title:'Salt for the Dead',req:['m16'],o:{k:'have',i:'salt',n:8},rw:{em:420,xp:1300},sd:'il1d'},
+ {id:'c8',t:'comp',who:'ilsa',title:'The Drowned Bells',req:['c7','m17'],o:{k:'kill',m:'drowned',n:14},rw:{em:700,xp:2200},sd:'il2d'},
+ {id:'c9',t:'comp',who:'kest',title:'A Knight\'s Oath',req:['m18'],o:{k:'kill',m:'hknight',n:6},rw:{em:900,xp:2800},sd:'ke1d'},
+ {id:'c10',t:'comp',who:'kest',title:'Alder\'s Sword',req:['c9','m22'],o:{k:'explore',z:'scar',n:8},rw:{em:1400,xp:4200},sd:'ke2d'},
+ {id:'c11',t:'comp',who:'lumen',title:'Light for Lumen',req:['m18'],o:{k:'have',i:'ember',n:5},rw:{em:600,xp:1800},sd:'lu1d',comp:'lumen'},
+ {id:'c12',t:'comp',who:'lumen',title:'Fly Free',req:['c11','m31'],o:{k:'explore',z:'spire',n:6},rw:{em:1800,xp:6000},sd:'lu2d'},
+ // Side quests (a = minimum act)
+ {id:'s1',t:'side',who:'mara',a:1,title:'Rations for the Camp',o:{k:'have',i:'bread',n:6},rw:{em:30,xp:60},on:`Mara: "Six rounds of hardtack and I will stop writing 'hungry' in the ledger."`},
+ {id:'s2',t:'side',who:'mara',a:1,title:'Crow Season',o:{k:'kill',m:'crow',n:12},rw:{em:50,xp:90},on:`Mara: "The crows have learned to open tents. Please make them unlearn."`},
+ {id:'s3',t:'side',who:'bran',a:1,title:'Powder for the Forge',req:['m3'],o:{k:'have',i:'gunpowder',n:6},rw:{em:80,xp:140},on:`Bran: "Six blast-salt. For the forge, not for anything fun. Mostly."`},
+ {id:'s4',t:'side',who:'mara',a:1,title:'Silent Nights',req:['m4'],o:{k:'kill',m:'spider',n:10},rw:{em:70,xp:120},on:`Mara: "The crawlers get in the bedrolls. I would like fewer crawlers."`},
+ {id:'s5',t:'side',who:'odo',a:1,title:'The Hermit\'s Stew',req:['m7'],o:{k:'have',i:'mushroom',n:6},rw:{em:90,xp:180,items:{stew:3}},on:`Odo: "There is a hermit in the Wood who makes a marvelous stew. He needs mushrooms. We need stew. It is a pure moral calculus."`},
+ {id:'s6',t:'side',who:'mara',a:1,title:'Scrapper\'s Tithe',req:['m4'],o:{k:'have',i:'iron_ore',n:12},rw:{em:90,xp:150},on:`Mara: "Twelve rust ore for the scrap-furnace. I will not ask what you did with the rest."`},
+ {id:'s7',t:'side',who:'tamsin',a:2,title:'Frostbite',o:{k:'kill',m:'frost_wolf',n:10},rw:{em:260,xp:600},on:`Tamsin: "The wolves keep stealing my arrows. Ten of them should learn better."`},
+ {id:'s8',t:'side',who:'cog',a:2,title:'Brass Debt',o:{k:'have',i:'cog',n:10},rw:{em:300,xp:700},on:`Cog: "Observation: I owe the Rustyard ten cogs. Request: assist."`},
+ {id:'s9',t:'side',who:'ilsa',a:2,title:'Tidewrack',o:{k:'kill',m:'eel',n:10},rw:{em:420,xp:900},on:`Ilsa: "The eels are lighting up the shallows. Put a few out."`},
+ {id:'s10',t:'side',who:'bran',a:3,title:'Forge Fire',o:{k:'have',i:'ember',n:8},rw:{em:600,xp:1400},on:`Bran: "Eight ember cores. The forge wants to run hotter. So do I."`},
+ {id:'s11',t:'side',who:'kest',a:3,title:'Cinder Hunters',o:{k:'kill',m:'blaze',n:12},rw:{em:700,xp:1600},on:`Kest: "The wraiths gather at dusk. Twelve of them is a good night\'s work."`},
+ {id:'s12',t:'side',who:'ilsa',a:4,title:'Fen Fever',o:{k:'have',i:'moss',n:10},rw:{em:900,xp:2000,items:{potion3:1}},on:`Ilsa: "Glimmer moss for the fever. The sick ones are dreaming of drowning."`},
+ {id:'s13',t:'side',who:'odo',a:4,title:'Quiet the Echoes',o:{k:'kill',m:'shade',n:10},rw:{em:1100,xp:2600},on:`Odo: "The echo shades are mimicking the dead. It is cruel. Please make it stop."`},
+ {id:'s14',t:'side',who:'cog',a:4,title:'Time Sand',o:{k:'have',i:'spring',n:8},rw:{em:1300,xp:3200},on:`Cog: "Observation: I wish to build a clock that runs slow. Eight springs required."`},
+ {id:'s15',t:'side',who:'tamsin',a:5,title:'Glass Eyes',o:{k:'kill',m:'scorp',n:12},rw:{em:1800,xp:4800},on:`Tamsin: "Twelve glass scorpions. Do not ask. I need the stingers."`},
+ {id:'s16',t:'side',who:'mara',a:5,title:'Void Ink',o:{k:'have',i:'void_ink',n:6},rw:{em:2400,xp:6000},on:`Mara: "Six void ink. I want to finish the ledger."`},
+ {id:'s17',t:'side',who:'mara',a:1,title:'Lost Pages',o:{k:'pages',n:6},rw:{em:140,xp:260,items:{potion:2}},on:`Mara: "Bring me six pages of any Lamplighter ledger. Anything legible. Anything at all."`},
+ {id:'s18',t:'side',who:'mara',a:3,title:'The Full Ledger',req:['s17'],o:{k:'pages',n:14},rw:{em:900,xp:2400,items:{potion3:1}},on:`Mara: "Fourteen pages. I think the ledger starts to make sense at fourteen."`},
+ {id:'s19',t:'side',who:'kest',a:2,title:'Trophy Hunter',o:{k:'stat',s:'elites',n:5},rw:{em:300,xp:800},on:`Kest: "Elites hunt in packs. Cull five. For the practice."`},
+ {id:'s20',t:'side',who:'mara',a:2,title:'Dungeon Duty',o:{k:'stat',s:'delves',n:3},rw:{em:500,xp:1200,items:{rift_core:1}},on:`Mara: "Three delves. Come back with all your limbs."`},
+ {id:'s21',t:'side',who:'bran',a:2,title:'A Better Blade',o:{k:'gear',t:4},rw:{em:350,xp:900},on:`Bran: "Equip a tier-four weapon and I will stop lecturing about your technique."`},
+ {id:'s22',t:'side',who:'mara',a:2,title:'Camp Foundations',o:{k:'build',b:'kitchen',l:2},rw:{em:260,xp:500},on:`Mara: "A proper kitchen. Level two. People work better on warm food."`},
+ {id:'s23',t:'side',who:'mara',a:3,title:'The Long Count',o:{k:'stat',s:'kills',n:300},rw:{em:800,xp:2000},on:`Mara: "Three hundred. I will keep the count if you keep the pace."`},
+ {id:'s24',t:'side',who:'mara',a:4,title:'The Thousand',req:['s23'],o:{k:'stat',s:'kills',n:1000},rw:{em:3000,xp:9000,echo:10},on:`Mara: "A thousand. I will frame the ledger."`}
+];
+const QD={};QUESTS.forEach(q=>{QD[q.id]=q;});
+
+/* ---- journal ---- */
+const LORE=[
+ ['mara','Mara','Mara keeps Ember Camp alive with a kettle, a ledger, and a stare that sorts people into useful and not yet useful. She will not say what she did before.'],
+ ['bran','Bran','Bran the smith has hands like shovels and a touch like a watchmaker. He never says where he learned.'],
+ ['odo','Brother Odo','Odo rang the bell in the Quiet Hamlet the day the villagers walked out singing. He has been trying to forgive himself since.'],
+ ['ilsa','Ilsa','Ilsa rows through her drowned city at dusk, ringing the tide-bell for people who are no longer there to hear it.'],
+ ['lamplighters','The Lamplighters','An old order that kept great lamps lit in places the dark wanted. They had a motto: do not let the lamp go out.'],
+ ['lamplighters2','What Mara Knew','Mara was a Lamplighter apprentice. Every Rift she has seen ate a lamp first.'],
+ ['alder','Alder','Alder was a Lamplighter, and Mara\'s brother. When the lamps began to go out, he made the Hollow Crown and put it on to save the camp. It saved them. It did not save him.'],
+ ['wick','The Wick','You are a Wick: someone who carries light, and relights after death. It is why the Quiet wants you, and why you keep waking.'],
+ ['truth','What They Did','The Lamplighters did not save the world from the dark. They opened the Door on purpose, to look at it. The dark noticed.'],
+ ['actII_end','Three Lamps','Hoarfang\'s Outpost, the Overseer\'s Yard, the Drowned Lantern: three old lamps, now dark or at peace. The way to the Scar is open.'],
+ ['z_plains','Ashen Flats','The first Rift opened here. The ground never closed.'],
+ ['z_village','Quiet Hamlet','The villagers did not die. They left through the Rift, all together, singing. Their bell is still swinging.'],
+ ['z_forest','Ghostwood','Trees do not die this way. Something drank them from the roots, patiently, one ring at a time.'],
+ ['z_mines','Deep Works','The crews dug until the walls started answering. Their lamps are still lit somewhere below.'],
+ ['z_tundra','Rime Barrens','The Rift here opened on a world that was already cold, and brought it along.'],
+ ['z_rustyard','Rustyard','Machines that were built to look after the lamps, and went on looking after nothing.'],
+ ['z_ruins','Sunken Quarter','A city came through the Rift with its ocean attached. The streets are still wet.'],
+ ['z_cinder','Cinder Fields','Everything here was once green. The black glass underfoot is the ghost of fields.'],
+ ['z_scar','The Scar','The first Rift tore here. The wound never healed. Whoever sits beyond it is not trapped. He is waiting.'],
+ ['z_fen','Mirror Fen','The water shows you what you would have done. It is always worse than what you did.'],
+ ['z_choir','Choir Halls','The Hamlet\'s dead sing here, forever, for whatever sits at the end of the hall.'],
+ ['z_clock','Clockwork Deep','The engine that made time possible, and then made it stop.'],
+ ['z_glass','Glass Desert','Pilgrims walk east in white, asking forgiveness of a tower that cannot hear.'],
+ ['z_spire','Lastlight Spire','The tower where the Lamplighters kept the last lamp, and where they opened the Door.'],
+ ['z_shore','The Starless Shore','The place beyond the Door. The tide never decides.'],
+ ['b_tusk_mother','The Tusk-Mother','She was only a boar. The Quiet made her angry enough to be a threat.'],
+ ['b_hollow_reeve','The Hollow Reeve','A town headman, emptied. Odo says he used to be kind.'],
+ ['b_mother_loom','Mother Loom','She wove the Wood into a net. She was only trying to keep it from falling.'],
+ ['b_warden','The Hush','It did not hunt you. It listened for you. The Works are quiet now.'],
+ ['b_hoarfang','Hoarfang','A wolf the size of a house, hunting alone because everything else was gone.'],
+ ['b_overseer','The Overseer','A machine that kept running because it was never told it could stop.'],
+ ['b_ancient_guardian','The Drowned Lantern','Its lamp was a lighthouse once. It was built to watch for the thing that was coming, not for ships.'],
+ ['b_cinder_maw','The Cinder Maw','What is left of a field that was starving for years, now starving still.'],
+ ['b_hollow_king','The Hollow King','He was the first through the Rift and the first to put the crown on. He was Mara\'s brother.'],
+ ['b_reflection','The Reflection','It was you, at your most honest.'],
+ ['b_choirmaster','The Choirmaster','A man who loved music more than anything, and was emptied of everything but music.'],
+ ['b_mainspring','The Mainspring','A coil wound beyond reason, holding the whole world to a single, endless afternoon.'],
+ ['b_sandglass','The Sandglass Colossus','What the desert becomes when it decides to remember being an hourglass.'],
+ ['b_ender_dragon','The Lastlight Wyrm','It was not the enemy. It was the last door, and it asked you for a reason.'],
+ ['b_quiet','The Quiet Between','The Quiet is what is left when everything else has stopped asking for something.'],
+ ['rebirth','Echoes','You died, or something like it, and woke at the camp with the kettle on and Mara handing you a bowl. Echoes are what stay behind.'],
+ ['end_relight','Ending: Relight','You sealed the Door with your own light. The world is held, and you will wake again.'],
+ ['end_kindle','Ending: Kindle','You took the Quiet into yourself. The world heals around a wound only you can feel.'],
+ ['end_open','Ending: Open the Door','You listened. The Quiet had been asking a question for a long, long time.'],
+ ['end_together','Ending: Together','Six lights and a Wick stood at the Door. It became a doorway, and the world walked through, both ways.']
+];
+const LD={};LORE.forEach(l=>{LD[l[0]]=l;});
+
+/* ---- collectible lamplighter pages ---- */
+const PAGES=[
+ `Night Watch, first entry. The lamp at the Hamlet burned bright tonight. The villagers brought bread. We gave them oil.`,
+ `The lamps hold the Quiet at the edges of the world. We are told it is only the dark. We are told it is only the dark.`,
+ `Entry, the Barrens. Cold beyond what the wool can bear. The lamp here is small. I am not sure it is enough.`,
+ `Entry, the Works. The miners dug too deep. They found a door in the stone. We have asked them to stop digging.`,
+ `Note to the Warden of the Works: do not let them make noise down there. It listens.`,
+ `Entry, the Rustyard. The tenders worked all night to keep the lamp lit. They did not complain. We should have asked them to.`,
+ `Entry, the Quarter. The sea took the lowest lamp today. We did not even hear it go.`,
+ `Alder says we should stop. Alder says we have already looked too long. I said we have not looked long enough.`,
+ `The Door is not locked. It never was. We only thought it was.`,
+ `Entry, Mara. My brother has a plan. I am afraid of what the plan costs.`,
+ `The Crown is a vessel, not a weapon. It can hold the Quiet for a time. It will not hold it forever.`,
+ `A hymn to the lamp: keep us, keep us, keep us lit. Keep the dark outside the door.`,
+ `Entry, the Fen. The water shows us what we would do if no one were looking. We would do nothing differently. That is the horror.`,
+ `The Choirmaster has stopped eating. He says he can hear the Door singing.`,
+ `Entry, the Deep. We have made a machine that can hold a moment still. Alder says it is the most dangerous thing we have ever made.`,
+ `We have been walking east for forty days, asking forgiveness. Of whom? The lamp does not answer.`,
+ `We opened the Door on purpose. We only wanted to look. We only wanted to know why the lamps were needed.`,
+ `The dark noticed us. It did not seem angry. It seemed curious.`,
+ `A lamp is not a wall. A lamp is a conversation. We stopped talking. We should not have.`,
+ `If you are reading this, someone survived. Please: do not let the lamp go out.`,
+ `Final entry. The Spire is quiet. There is a figure at the Door. It is holding a lantern, lit. It is waiting for someone.`,
+ `P.S. Whoever you are: you are the lantern. We made you to carry what we could not. We are sorry.`,
+ `P.P.S. It was never about the dark. It was about asking it a question. Ask it.`,
+ `The first page of the first ledger: Begin. Light the lamp. Listen.`
+];
+
+/* ---- NPC talk lines by act ---- */
+const TALK={
+ mara:{1:[`Mara: "Eat. Count your rounds. Count them twice."`,`Mara: "The ledger says we have four days of bread. The ledger is optimistic."`,`Mara: "Bring back what you can. Bring yourself back first."`],
+       2:[`Mara: "Hoarfang, Overseer, the Lantern. Three old names. Three old lamps. I knew the people who tended them."`,`Mara: "The Lamplighters were careful. That is what scares me. They were careful, and still."`],
+       3:[`Mara: "My brother used to hum when he was thinking. I had forgotten that. I heard it in my sleep last night."`,`Mara: "The Scar is close. I do not like how much I am looking forward to it being over."`],
+       4:[`Mara: "You came back with a Reflection in your eyes. It will pass. Mine took ten years."`,`Mara: "The Choir was a good one. Alder loved a choir."`],
+       5:[`Mara: "The pilgrims are walking to the Spire. Somebody should tell them it is not a shrine."`,`Mara: "I read the last journal entry. I should have asked more questions years ago."`],
+       6:[`Mara: "Whatever you decide beyond the Door, I will keep the fire. That is the one thing I am sure of."`,`Mara: "I count the food, the beds, and the dead. I should start counting the living."`]},
+ bran:{1:[`Bran: "Bring me iron and I will make you something that does not break. Everything breaks, but slower."`],
+       2:[`Bran: "Rime steel takes a different hammer. I like a different hammer."`],
+       3:[`Bran: "Ember cores. Voidglass. You are bringing me the things dreams are made of, and I am ruining them with a hammer."`],
+       4:[`Bran: "Mirror shards. They fight me every blow. Good. I respect that."`],
+       5:[`Bran: "Sunglass. I did not know glass could be an edge. I am learning."`],
+       6:[`Bran: "The best thing I have ever made is a nail. Everything else was just practice."`]},
+ odo:{1:[`Odo: "The trouble with faith is it asks for so much patience. The trouble with doubt is it asks for so much more."`,`Odo: "I will bandage you or I will pray over you. Whichever you need less of."`],
+      2:[`Odo: "The Wood was kind, in its way. It let me sleep."`],
+      3:[`Odo: "Alder was a good man. I have been telling myself that. It helps."`],
+      4:[`Odo: "The choir. My choir. I think if I hum, they may hear."`],
+      5:[`Odo: "The pilgrims remind me of the Hamlet. All of them walking, all of them certain."`],
+      6:[`Odo: "Whatever you choose, I will ring a bell for it. That is what I am good for."`]},
+ tamsin:{1:[`Tamsin: "I was a raider. I am a reformed raider. The distinction is mostly about whose camp I eat at."`],
+         2:[`Tamsin: "Cold makes my bow-hand ache. Warm it up, and I will shoot anything you point at."`],
+         3:[`Tamsin: "You ever notice that every Lamplighter ruin has a good vantage point? Smart people. Terrible at survival."`],
+         4:[`Tamsin: "The fen shows me my old crew. I wave. They do not wave back."`],
+         5:[`Tamsin: "Pilgrims, glass, sun. I hate everything about this, and I am having the best time."`],
+         6:[`Tamsin: "End of the world. Shame I only just got good at the bow."`]},
+ cog:{1:[`Cog: "Observation: you are alive. Observation: this is pleasing."`],
+      2:[`Cog: "Observation: this one is cold. Do you require my heat? I have some. Not much."`],
+      3:[`Cog: "Observation: the Lamplighters made me to tend a flame. The flame is out. I am recalibrating."`],
+      4:[`Cog: "Observation: I have been counting the ticks of the Deep. They are not lying. They are just not helping."`],
+      5:[`Cog: "Observation: sand has no directive. This is liberating."`],
+      6:[`Cog: "Observation: whatever you choose, I will be here. I do not have a directive for it. It is a nice feeling."`]},
+ ilsa:{1:[`Ilsa: "The sea sings to those who listen. It is mostly just humming."`],
+       2:[`Ilsa: "The tide-bell is still ringing. I hear it when I sleep."`],
+       3:[`Ilsa: "The Scar glows like a lantern. I am not sure I like it."`],
+       4:[`Ilsa: "The fen has no tide. It has only waiting."`],
+       5:[`Ilsa: "Glass is just sea that decided to stay."`],
+       6:[`Ilsa: "I think the Quiet is a tide. It was always going to come back."`]},
+ kest:{1:[`Kest: "I am sworn to a man who is not here. I am learning what that means."`],
+       2:[`Kest: "Cold is a good teacher. It teaches you what you can leave behind."`],
+       3:[`Kest: "I have not slept since the Scar. I do not expect to."`],
+       4:[`Kest: "Alder\'s voice is in this crown. I can hear it. It says I did well."`],
+       5:[`Kest: "The pilgrims are walking toward a thing none of them has seen. I understand them."`],
+       6:[`Kest: "I will stand where you tell me. I have always been good at standing."`]},
+ lumen:{1:[`*Lumen flickers, then settles on your shoulder.*`],
+        2:[`*Lumen drifts closer to the fire, then closer to you.*`],
+        3:[`*Lumen glows a little brighter whenever Mara talks about the old days.*`],
+        4:[`*Lumen dims in the fen. It does not like the water.*`],
+        5:[`*Lumen drinks the desert sun. It leaves a halo.*`],
+        6:[`*Lumen is as bright as you have ever seen it.*`]}
+};
+
+/* ================= SKILLS ================= */
+// s: passive per-rank stats. act: active skill (focus cost c). rq: points needed in branch
+const BRANCH={edge:'Edge',bulwark:'Bulwark',scav:'Scavenger'};
+const SKILLS=[
+ {id:'e1',b:'edge',n:'Hardened Grip',d:'+2% ATK per rank',max:5,s:{patk:2}},
+ {id:'e2',b:'edge',n:'Power Strike',d:'Active. A heavy blow. 25 focus.',max:3,act:1,c:25},
+ {id:'e3',b:'edge',n:'Keen Eye',d:'+1.5% crit chance per rank',max:5,s:{crit:1.5}},
+ {id:'e4',b:'edge',n:'Rend',d:'Active. A bleeding cut. 30 focus.',max:3,act:1,c:30,rq:3},
+ {id:'e5',b:'edge',n:'Brutal',d:'+6% crit damage per rank',max:5,s:{critd:6},rq:5},
+ {id:'e6',b:'edge',n:'Execute',d:'Active. Finishes the wounded. 40 focus.',max:3,act:1,c:40,rq:8},
+ {id:'e7',b:'edge',n:'Momentum',d:'+2 focus per hit per rank',max:3,s:{focus:2},rq:10},
+ {id:'e8',b:'edge',n:'Bloodlust',d:'Heal 1.5% max HP per kill, per rank',max:3,s:{bl:1.5},rq:14},
+ {id:'b1',b:'bulwark',n:'Thick Skin',d:'+2% DEF per rank',max:5,s:{pdef:2}},
+ {id:'b2',b:'bulwark',n:'Brace',d:'Active. Blunt the next blow. 20 focus.',max:3,act:1,c:20},
+ {id:'b3',b:'bulwark',n:'Vigor',d:'+3% max HP per rank',max:5,s:{php:3}},
+ {id:'b4',b:'bulwark',n:'Riposte',d:'Active. Guard and counter. 25 focus.',max:3,act:1,c:25,rq:3},
+ {id:'b5',b:'bulwark',n:'Iron Will',d:'+1.5% dodge per rank',max:5,s:{dodge:1.5},rq:5},
+ {id:'b6',b:'bulwark',n:'Second Wind',d:'Active. Heal a share of max HP. 35 focus.',max:3,act:1,c:35,rq:8},
+ {id:'b7',b:'bulwark',n:'Stalwart',d:'Guarding blocks 5% more per rank',max:3,s:{stal:5},rq:10},
+ {id:'b8',b:'bulwark',n:'Unbroken',d:'Once per fight, survive a lethal blow at 1 HP',max:1,s:{unb:1},rq:14},
+ {id:'s1',b:'scav',n:'Sharp Nose',d:'+4% loot find per rank',max:5,s:{loot:4}},
+ {id:'s2',b:'scav',n:'Throw Scrap',d:'Active. Ranged hit that ignores armor. 15 focus.',max:3,act:1,c:15},
+ {id:'s3',b:'scav',n:'Haggler',d:'+3% sell price and 3% off buying per rank',max:5,s:{sell:3,buy:3}},
+ {id:'s4',b:'scav',n:'Mark',d:'Active. Mark the target for extra damage. 20 focus.',max:3,act:1,c:20,rq:3},
+ {id:'s5',b:'scav',n:'Quick Fingers',d:'8% chance per rank that using an item is free',max:3,s:{qf:8},rq:5},
+ {id:'s6',b:'scav',n:'Lucky Break',d:'Active. A guaranteed critical. 35 focus.',max:3,act:1,c:35,rq:8},
+ {id:'s7',b:'scav',n:'Efficient',d:'6% less hunger per rank',max:5,s:{food:6},rq:10},
+ {id:'s8',b:'scav',n:'Windfall',d:'+6% XP and scrip per rank',max:3,s:{xp:6,em:6},rq:14}
+];
+const SKD={};SKILLS.forEach(s=>{SKD[s.id]=s;});
+
+/* ================= CAMP BUILDINGS ================= */
+const BUILD=[
+ {id:'forge',n:'Forge',max:5,d:['Unlocks enhancement up to +3. Craft up to Steel.','Enhance to +5. Craft up to Rime and Rustwrought.','Enhance to +7. Craft up to Tidal and Voidglass.','Enhance to +9. Craft up to Starshard and Sunglass.','Enhance to +10. Craft Lastlight. Better craft quality.'],
+  c:[{e:150,i:{iron:6}},{e:500,i:{iron:10,frost_core:5}},{e:1800,i:{cog:10,oil:6,prismarine:6}},{e:6000,i:{ember:10,mirror:6,diamond:4}},{e:18000,i:{starlight:8,spring:8,rift_core:3}}]},
+ {id:'kitchen',n:'Kitchen',max:5,d:['Food is 10% stronger.','Food 20% stronger. Field Rations.','Food 30% stronger. Camp Feasts.','Food 40% stronger.','Food 50% stronger. Meals heal a little extra.'],
+  c:[{e:80,i:{wood:6,stone:4}},{e:300,i:{iron:4,wheat:10}},{e:1200,i:{salt:6,moss:6}},{e:4000,i:{hymn:6,ember:6}},{e:12000,i:{gsand:8,starlight:4}}]},
+ {id:'infirmary',n:'Infirmary',max:5,d:['Resting grants a short XP bonus.','Resting also grants more XP.','Resting cures all ailments and gives a bigger bonus.','Resting restores Focus and more XP.','Resting gives the largest bonus.'],
+  c:[{e:100,i:{berries:6,bone:4}},{e:400,i:{potion:2,moss:3}},{e:1500,i:{salt:6,potion2:2}},{e:5000,i:{hymn:6,potion3:1}},{e:15000,i:{starlight:6,potion3:3}}]},
+ {id:'tower',n:'Watchtower',max:5,d:['+3% loot find. Fewer ambushes.','+6% loot find. Elites are easier to spot.','+9% loot find.','+12% loot find. Fewer ambushes.','+15% loot find and shows what lies ahead.'],
+  c:[{e:120,i:{wood:8,iron:3}},{e:450,i:{iron:8,string:8}},{e:1600,i:{cog:8,oil:4}},{e:5500,i:{mirror:6,spring:4}},{e:16000,i:{void_ink:5,rift_core:3}}]},
+ {id:'library',n:'Library',max:5,d:['+3% XP. Skill respec is cheaper.','+6% XP. Respec costs half.','+9% XP.','+12% XP. Respec is nearly free.','+15% XP and free respecs.'],
+  c:[{e:160,i:{string:6,bone:6}},{e:600,i:{moss:6,mushroom:6}},{e:2200,i:{hymn:5,mirror:5}},{e:7000,i:{spring:6,gsand:6}},{e:20000,i:{void_ink:6,starlight:6}}]},
+ {id:'market',n:'Market',max:5,d:['3% off buying. The trader stocks one more item.','6% off buying, 2% better selling.','9% off buying.','12% off buying.','15% off buying. Rare stock appears.'],
+  c:[{e:140,i:{iron:3,leather:6}},{e:520,i:{salt:4,cog:4}},{e:1900,i:{diamond:3,ember:4}},{e:6500,i:{hymn:5,gsand:5}},{e:19000,i:{lastlight:2,rift_core:4}}]}
+];
+const BLD={};BUILD.forEach(b=>{BLD[b.id]=b;});
+
+/* ================= UPGRADES (scrip, per life) & ECHO (permanent) ================= */
+const UPG=[
+ {id:'vit',n:'Hearty',d:'+4% max HP',max:15,base:30},
+ {id:'sharp',n:'Whetstone',d:'+3% ATK',max:15,base:40},
+ {id:'plate',n:'Reinforced Plating',d:'+3% DEF',max:15,base:45},
+ {id:'scav',n:'Scavenger',d:'+3% loot find',max:15,base:35},
+ {id:'hag',n:'Haggler',d:'+3% sell price, 2% off buying',max:15,base:45},
+ {id:'gut',n:'Iron Gut',d:'7% less hunger',max:15,base:40}
+];
+const ECHO=[
+ {id:'might',n:'Echo Might',d:'+3% ATK',max:10,base:6},
+ {id:'hide',n:'Echo Hide',d:'+4% max HP',max:10,base:6},
+ {id:'guard',n:'Echo Guard',d:'+3% DEF',max:10,base:7},
+ {id:'learn',n:'Fast Learner',d:'+8% XP',max:10,base:5},
+ {id:'gold',n:'Fat Purse',d:'+8% scrip from fights',max:10,base:5},
+ {id:'find',n:'Echo Nose',d:'+4% loot find',max:8,base:5},
+ {id:'crit',n:'Echo Edge',d:'+1% crit chance',max:8,base:6},
+ {id:'sp',n:'Echo Insight',d:'+2 skill points',max:10,base:12},
+ {id:'focus',n:'Echo Calm',d:'Start each fight with +10 focus',max:5,base:5},
+ {id:'bondx',n:'Echo Bonds',d:'+15% companion bond gain',max:5,base:6},
+ {id:'foreman',n:'Foreman',d:'8% cheaper camp building',max:5,base:8},
+ {id:'kit',n:'Survivor\'s Kit',d:'Start each life with better gear and tonics (3 levels)',max:3,base:20}
+];
+const BLESS=[
+ {id:'ember',n:'Ember Blessing',d:'+20% ATK',s:{patk:20}},
+ {id:'stone',n:'Stone Blessing',d:'+25% DEF',s:{pdef:25}},
+ {id:'fortune',n:'Fortune Blessing',d:'+25% loot and scrip',s:{loot:25,em:25}},
+ {id:'lantern',n:'Lantern Blessing',d:'+30% XP',s:{xp:30}},
+ {id:'wind',n:'Wind Blessing',d:'+10% dodge',s:{dodge:10}},
+ {id:'hearth',n:'Hearth Blessing',d:'Half hunger',s:{food:50}}
+];
+
+/* ================= ACHIEVEMENTS ================= */
+// t evaluated against live game state; em: scrip, ec: echoes, ti: title
+const ACH=[
+ {id:'a_kill1',n:'First Blood',d:'Defeat an enemy.',t:()=>kills()>=1,em:10},
+ {id:'a_kill100',n:'Hundred Dead',d:'Defeat 100 enemies.',t:()=>kills()>=100,em:100},
+ {id:'a_kill500',n:'Five Hundred',d:'Defeat 500 enemies.',t:()=>kills()>=500,em:600,ec:5},
+ {id:'a_kill2000',n:'Reaper',d:'Defeat 2000 enemies.',t:()=>kills()>=2000,em:3000,ec:15,ti:'Reaper'},
+ {id:'a_lv10',n:'Seasoned',d:'Reach level 10.',t:()=>g.lvl>=10,em:100},
+ {id:'a_lv25',n:'Veteran',d:'Reach level 25.',t:()=>g.lvl>=25,em:800,ec:5},
+ {id:'a_lv40',n:'Champion',d:'Reach level 40.',t:()=>g.lvl>=40,em:3000,ec:10,ti:'Champion'},
+ {id:'a_lv60',n:'Legend',d:'Reach level 60.',t:()=>g.lvl>=60,em:10000,ec:30,ti:'Legend'},
+ {id:'a_b1',n:'Act I: Embers',d:'Defeat The Hush.',t:()=>!!(g.bd.warden||g.bdAll.warden),em:300},
+ {id:'a_b2',n:'Act II: Salt and Rime',d:'Defeat The Drowned Lantern.',t:()=>!!(g.bd.ancient_guardian||g.bdAll.ancient_guardian),em:900,ec:3},
+ {id:'a_b3',n:'Act III: The Scar',d:'Defeat the Hollow King.',t:()=>!!(g.bd.hollow_king||g.bdAll.hollow_king),em:2000,ec:6},
+ {id:'a_b4',n:'Act IV: Underneath',d:'Defeat The Mainspring.',t:()=>!!(g.bd.mainspring||g.bdAll.mainspring),em:4000,ec:10},
+ {id:'a_b5',n:'Act V: Lastlight',d:'Defeat the Lastlight Wyrm.',t:()=>!!(g.bd.ender_dragon||g.bdAll.ender_dragon),em:8000,ec:15},
+ {id:'a_b6',n:'Act VI: The Quiet',d:'Defeat The Quiet Between.',t:()=>!!(g.bd.quiet||g.bdAll.quiet),em:20000,ec:30,ti:'Lamplighter'},
+ {id:'a_e1',n:'Ending: Relight',d:'Choose the Relight ending.',t:()=>!!g.ends.end_relight,ec:10},
+ {id:'a_e2',n:'Ending: Kindle',d:'Choose the Kindle ending.',t:()=>!!g.ends.end_kindle,ec:10},
+ {id:'a_e3',n:'Ending: Open the Door',d:'Choose the Open ending.',t:()=>!!g.ends.end_open,ec:10},
+ {id:'a_e4',n:'Ending: Together',d:'Choose the Together ending.',t:()=>!!g.ends.end_together,ec:25,ti:'Lightbearer'},
+ {id:'a_eall',n:'Every Door',d:'See all four endings.',t:()=>['end_relight','end_kindle','end_open','end_together'].every(x=>g.ends[x]),ec:50,ti:'Doorkeeper'},
+ {id:'a_epic',n:'Purple Rain',d:'Own an Epic item.',t:()=>g.gear.some(x=>x.r>=3),em:300},
+ {id:'a_relic',n:'Relic Hunter',d:'Own a Relic item.',t:()=>g.gear.some(x=>x.r>=4),em:1000,ec:5},
+ {id:'a_enh',n:'Fully Tempered',d:'Enhance an item to +10.',t:()=>g.gear.some(x=>x.e>=10),em:2000,ec:5},
+ {id:'a_t5',n:'Armed to the Teeth',d:'Equip tier-5 gear or better in every slot.',t:()=>SLOTS.every(s=>{const i=eqi(s);return i&&GEAR[i.b].tier>=5;}),em:1500},
+ {id:'a_t10',n:'Lastlight Armory',d:'Equip tier-10 gear in every slot.',t:()=>SLOTS.every(s=>{const i=eqi(s);return i&&GEAR[i.b].tier>=10;}),em:12000,ec:20},
+ {id:'a_delve1',n:'Delver',d:'Complete a delve.',t:()=>(g.stats.delves||0)>=1,em:100},
+ {id:'a_delve5',n:'Deep Delver',d:'Reach depth 5 in any delve.',t:()=>Object.values(g.dvBest).some(v=>v>=5),em:1200,ec:4},
+ {id:'a_delve10',n:'Abyss Walker',d:'Reach depth 10 in any delve.',t:()=>Object.values(g.dvBest).some(v=>v>=10),em:5000,ec:12,ti:'Abyss Walker'},
+ {id:'a_comp3',n:'Friends',d:'Recruit 3 companions.',t:()=>Object.keys(g.comp.have).length>=3,em:300},
+ {id:'a_comp6',n:'Fellowship',d:'Recruit all 6 companions.',t:()=>Object.keys(g.comp.have).length>=6,em:2000,ec:8},
+ {id:'a_bond',n:'Bonded',d:'Raise a companion to bond rank 5.',t:()=>Object.keys(COMP).some(c=>bondRank(c)>=5),em:2500,ec:6},
+ {id:'a_pg12',n:'Archivist',d:'Collect 12 Lamplighter pages.',t:()=>pageCount()>=12,em:800,ec:3},
+ {id:'a_pg24',n:'The Whole Ledger',d:'Collect all 24 pages.',t:()=>pageCount()>=24,em:4000,ec:12,ti:'Archivist'},
+ {id:'a_bld1',n:'Settled',d:'Build every camp building.',t:()=>BUILD.every(b=>bl(b.id)>=1),em:500},
+ {id:'a_bld5',n:'Master Builder',d:'Raise three buildings to level 5.',t:()=>BUILD.filter(b=>bl(b.id)>=5).length>=3,em:6000,ec:10},
+ {id:'a_re1',n:'Born Again',d:'Rebirth once.',t:()=>g.re>=1,ec:5},
+ {id:'a_re3',n:'Eternal',d:'Rebirth three times.',t:()=>g.re>=3,ec:15,ti:'Eternal'},
+ {id:'a_death',n:'Persistent',d:'Die ten times.',t:()=>(g.stats.deaths||0)>=10,em:200},
+ {id:'a_elite',n:'Elite Hunter',d:'Defeat 25 elites.',t:()=>(g.stats.elites||0)>=25,em:800,ec:3},
+ {id:'a_bounty',n:'Bounty Hunter',d:'Complete 20 bounties.',t:()=>(g.stats.bounties||0)>=20,em:1500,ec:4},
+ {id:'a_craft',n:'Crafty',d:'Craft 50 items.',t:()=>(g.stats.crafts||0)>=50,em:400},
+ {id:'a_quest20',n:'Helpful',d:'Complete 20 quests.',t:()=>Object.values(g.q).filter(s=>s.s==='done').length>=20,em:1000,ec:5},
+ {id:'a_trial1',n:'Echo Walker',d:'Win an Echo Trial.',t:()=>(g.stats.trials||0)>=1,em:500,ec:2},
+ {id:'a_trial10',n:'Trial by Echo',d:'Win 10 Echo Trials.',t:()=>(g.stats.trials||0)>=10,em:6000,ec:10,ti:'Trialist'},
+ {id:'a_rich',n:'Pockets Full',d:'Hold 10,000 scrip.',t:()=>g.em>=10000,ec:5}
+];
+
+/* ================= RUNTIME: helpers, state, stats, gear ================= */
+const $=s=>document.querySelector(s);
+const rnd=()=>Math.random();
+const R=(a,b)=>a+Math.floor(rnd()*(b-a+1));
+const pick=a=>a[Math.floor(rnd()*a.length)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rf=(a,b)=>a+(b-a)*rnd();
+const pround=x=>{const w=Math.floor(x);return w+(rnd()<x-w?1:0);};
+function wpick(list){let t=0;for(const x of list)t+=x[1];let r=rnd()*t;for(const x of list){if((r-=x[1])<0)return x[0];}return list[list.length-1][0];}
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
+const fk=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e4?(n/1e3).toFixed(1)+'k':String(Math.round(n));
+const fmt=n=>{n=Math.round(n);return n>=1e6?(n/1e6).toFixed(2)+'M':n.toLocaleString('en-US');};
+
+const KEY='hollowfall.v4',OLDKEY='hollowfall.v1';
+let g=null,ev=null;
+const UI={tab:{},cf:null,auto:false,hunt:false,timer:null,noTimers:false,msg:''};
+const log=$('#log'),deck=$('#deck');
+
+const fresh=()=>({
+  v:4,lvl:1,xp:0,hp:60,food:80,em:0,inv:{bread:2,potion:1},gear:[],eq:{},uid:1,
+  loc:'camp',view:'main',t:0,day:1,wx:0,prog:{},q:{},fl:{},seen:{},bd:{},bld:{},sk:{},up:{},
+  comp:{have:{},act:[],bond:{}},fight:null,delve:null,scene:null,bless:null,buff:{},st:{},
+  bt:null,shop:null,talked:{},rest:0,rf:0,nx:null,lk:{},ls:{kills:0,elites:0,delves:0},log:[],hunted:0,
+  re:0,ech:0,eu:{},lore:{},bdAll:{},ends:{},ach:{},titles:{},title:'',pg:{},dvBest:{},kills:{},as:-1,
+  stats:{kills:0,elites:0,delves:0,bounties:0,crafts:0,deaths:0,trials:0},trB:{}
+});
+const U=id=>g.up[id]||0, X=id=>g.eu[id]||0, bl=id=>g.bld[id]||0;
+const kills=()=>g.stats.kills;
+const pageCount=()=>Object.keys(g.pg).length;
+const bondRank=c=>BOND.filter(x=>(g.comp.bond[c]||0)>=x).length;
+const compOn=c=>g.comp.act.indexOf(c)>=0;
+const need=l=>Math.round(15*Math.pow(l,2.2)+12);
+const have=id=>g.inv[id]||0;
+const give=(id,n=1)=>{g.inv[id]=have(id)+n;};
+const take=(id,n=1)=>{const v=have(id)-n;if(v>0)g.inv[id]=v;else delete g.inv[id];};
+const nm=id=>ITEMS[id]?ITEMS[id].n:id;
+const act=()=>{let a=1;for(const z in ZONES){const Z=ZONES[z];if(Z.act&&(!Z.req||g.bd[Z.req])&&Z.act>a)a=Z.act;}return a;};
+const unlocked=z=>{const Z=ZONES[z];return z==='camp'||!Z.req||!!g.bd[Z.req];};
+const maxZoneLvl=()=>{let m=1;for(const z in ZONES){if(z!=='camp'&&unlocked(z))m=Math.max(m,ZONES[z].hi);}return m;};
+
+/* ---------- log ---------- */
+function say(t,c,keep){
+  c=c||'story';
+  const p=el('p','e '+c,t);log.appendChild(p);
+  while(log.children.length>140)log.firstChild.remove();
+  log.scrollTop=log.scrollHeight;
+  if(keep!==false){g.log.push([t,c]);if(g.log.length>90)g.log.shift();}
+}
+function lore(id){if(!LD[id]||g.lore[id])return;g.lore[id]=1;say('Journal updated: '+LD[id][1]+'.','sys');}
+
+/* ---------- gear ---------- */
+const slotOf=i=>GEAR[i.b].slot, tierOf=i=>GEAR[i.b].tier;
+const eqi=s=>g.eq[s]?g.gear.find(x=>x.u===g.eq[s])||null:null;
+const gById=u=>g.gear.find(x=>x.u===u);
+function gstat(i){
+  const B=GEAR[i.b],m=RM[i.r]*(1+.07*i.e);
+  const o={atk:Math.round(B.atk*m),def:Math.round(B.def*m),hp:Math.round(B.hp*m)};
+  for(const [k,v] of i.af)o[k]=(o[k]||0)+v;
+  return o;
+}
+function gname(i){
+  const base=i.rl?RLD[i.rl].n:(i.r?RAR[i.r]+' ':'')+GEAR[i.b].n;
+  return base+(i.e?' +'+i.e:'');
+}
+const affTxt=([k,v])=>AFF[k].n+' +'+v+(AFF[k].p?'%':'');
+function gtxt(i){
+  const o=gstat(i),p=[];
+  if(o.atk)p.push('+'+o.atk+' ATK');
+  if(o.def)p.push('+'+o.def+' DEF');
+  if(o.hp)p.push('+'+o.hp+' HP');
+  for(const k in o){if(k!=='atk'&&k!=='def'&&k!=='hp'&&AFF[k])p.push(AFF[k].n+' +'+(Math.round(o[k]*10)/10)+(AFF[k].p?'%':''));}
+  return p.join(' · ');
+}
+function gtxtBase(i){ // base stats only + affix count
+  const o=gstat(i),p=[];
+  if(o.atk)p.push('+'+o.atk+' ATK');if(o.def)p.push('+'+o.def+' DEF');if(o.hp)p.push('+'+o.hp+' HP');
+  const af=i.af.filter(a=>a[0]!=='atk'&&a[0]!=='def'&&a[0]!=='hp');
+  return p.join(' ')+(af.length?'  ·  '+af.map(affTxt).join(', '):'');
+}
+function rollAff(i,keep){
+  const slot=slotOf(i),t=tierOf(i);
+  const n=[0,1,2,3,4][i.r];
+  const keys=AFFK.filter(k=>AFF[k].s.indexOf(slot)>=0);
+  const af=[];
+  while(af.length<n&&keys.length){
+    const k=keys.splice(Math.floor(rnd()*keys.length),1)[0],[lo,hi]=AFF[k].f(t);
+    const u=Math.min(1,rnd()*.75+i.r*.07);
+    let v=lo+(hi-lo)*u;v=AFF[k].i?Math.round(v):Math.round(v*10)/10;
+    af.push([k,v]);
+  }
+  i.af=af;
+}
+function mkGear(slot,tier,r,rl){
+  const i={u:g.uid++,b:slot+tier,r:r,e:0,af:[],lk:0};
+  if(rl){i.rl=rl.id;i.r=4;i.af=rl.a.map(x=>[x[0],x[1]]);i.lk=1;}
+  else rollAff(i);
+  return i;
+}
+const tierFor=L=>{let t=1;TIERS.forEach((T,i)=>{if(L>=T.L)t=i+1;});return t;};
+function rollRar(w){return wpick(w.map((x,i)=>[i,x]));}
+const RAR_W={n:[62,26,9.5,2.5],e:[38,34,21,7],b:[0,28,50,22],d:[30,35,26,9]};
+function dropGear(L,mode,minr){
+  let t=tierFor(L);const x=rnd();
+  if(x<.22&&t>1)t--;else if(x>.92&&t<10)t++;
+  let r=rollRar(RAR_W[mode||'n']);if(minr!=null)r=Math.max(r,minr);
+  return mkGear(pick(SLOTS),t,r);
+}
+const gval=i=>Math.max(1,Math.round(GEAR[i.b].v*RVAL[i.r]*(1+.2*i.e)*.14*(1+sellPct()/100)));
+function addGear(i,quiet){
+  if(g.as>=0&&i.r<=g.as&&!i.lk&&!i.rl){const v=gval(i);g.em+=v;if(!quiet)say('Auto-sold '+gname(i)+' for '+v+' scrip.','sys');return null;}
+  if(g.gear.length>=90){
+    const junk=g.gear.filter(x=>!x.lk&&g.eq[slotOf(x)]!==x.u).sort((a,b)=>gval(a)-gval(b))[0];
+    if(junk&&gval(junk)<gval(i)){g.em+=gval(junk);g.gear.splice(g.gear.indexOf(junk),1);say('Pack full. Sold '+gname(junk)+'.','sys');}
+    else{g.em+=gval(i);say('Pack full. Sold '+gname(i)+'.','sys');return null;}
+  }
+  g.gear.push(i);return i;
+}
+function equipG(i){g.eq[slotOf(i)]=i.u;const m=calc().hp;if(g.hp>m)g.hp=m;}
+
+/* ---------- stats ---------- */
+const bm=n=>g.buff[n]?g.buff[n].m:1;
+const BSD={};BLESS.forEach(b=>{BSD[b.id]=b;});
+const sellPct=()=>{let s=3*U('hag')+3*(g.sk.s3||0)+(bl('market')>=2?2:0);return s;};
+function calc(){
+  const S={},add=(k,v)=>{S[k]=(S[k]||0)+v;};
+  let ga=0,gd=0,gh=0;
+  for(const s of SLOTS){const i=eqi(s);if(!i)continue;const o=gstat(i);ga+=o.atk||0;gd+=o.def||0;gh+=o.hp||0;for(const k in o)if(k!=='atk'&&k!=='def'&&k!=='hp')add(k,o[k]);}
+  for(const s of SKILLS){const r=g.sk[s.id]||0;if(r&&s.s)for(const k in s.s)add(k,s.s[k]*r);}
+  if(g.bless)for(const k in BSD[g.bless.id].s)add(k,BSD[g.bless.id].s[k]);
+  {const pb=2*Math.floor(pageCount()/6);add('patk',pb);add('pdef',pb);}
+  if(g.fl.bg_sold)add('patk',5);if(g.fl.bg_scav)add('loot',8);if(g.fl.bg_schol)add('xp',8);
+  const L=g.lvl,o={};
+  o.atk=Math.round((4+L*1.1+ga)*(1+((S.patk||0)+3*U('sharp')+3*X('might'))/100)*bm('rage'));
+  o.def=Math.round((1+L*.55+gd)*(1+((S.pdef||0)+3*U('plate')+3*X('guard'))/100)*bm('ward'));
+  o.hp=Math.round((50+L*9+gh)*(1+((S.php||0)+4*U('vit')+4*X('hide'))/100));
+  o.crit=clamp(5+(S.crit||0)+X('crit'),0,75);
+  o.critd=50+(S.critd||0);
+  o.dodge=clamp((S.dodge||0)+(compOn('lumen')?bondRank('lumen'):0),0,45);
+  o.ls=clamp(S.ls||0,0,25);
+  o.thorn=S.thorn||0;
+  o.fgain=10+(S.focus||0);
+  o.xp=(S.xp||0)+8*X('learn')+3*bl('library');
+  o.em=(S.em||0)+8*X('gold');
+  o.loot=(S.loot||0)+4*X('find')+3*U('scav')+3*bl('tower');
+  o.regen=S.regen||0;
+  o.heal=S.heal||0;
+  o.food=clamp((S.food||0)+7*U('gut'),0,70);
+  o.sell=sellPct();
+  o.buy=clamp(2*U('hag')+3*(g.sk.s3||0)+3*bl('market'),0,60);
+  o.qf=S.qf||0;o.bl=S.bl||0;o.stal=S.stal||0;o.unb=S.unb||0;
+  return o;
+}
+const maxHp=()=>calc().hp;
+const sp=()=>({tot:Math.max(0,g.lvl-1)+2*X('sp'),used:Object.values(g.sk).reduce((a,b)=>a+b,0)});
+const brPts=b=>SKILLS.filter(s=>s.b===b).reduce((a,s)=>a+(g.sk[s.id]||0),0);
+function skillAvail(s){return (!s.rq||brPts(s.b)-(g.sk[s.id]||0)>=s.rq);}
+const price=id=>Math.max(1,Math.round(ITEMS[id].v*2*(1-calc().buy/100)));
+const sellVal=(id,n)=>Math.max(1,Math.round(ITEMS[id].v*n*.9*(1+sellPct()/100)));
+
+/* ---------- time, hunger, xp, hp ---------- */
+const phase=()=>Math.floor(g.t/3)%8;
+const isNight=()=>phase()>=6;
+function newDay(){
+  g.day=1+Math.floor(g.t/24);
+  g.wx=wpick([[0,48],[1,22],[2,18],[3,12]]);
+  say('Day '+g.day+' · '+WX[g.wx][0]+'. '+WX[g.wx][1],'day');
+}
+function tick(ticks,fc){
+  const d0=g.day;g.t+=ticks;
+  if(1+Math.floor(g.t/24)!==d0)newDay();
+  let c=fc==null?ticks*1.3:fc;
+  c*=(1-calc().food/100)*(g.wx===3?1.4:1)*(isNight()?1.1:1);
+  g.food=Math.max(0,g.food-pround(c));
+  if(g.food===0){
+    const d=Math.max(2,Math.round(maxHp()*.03));
+    if(g.hp>1){g.hp=Math.max(1,g.hp-d);say('Starving. You lose '+d+' HP.','hit');}
+  }else if(g.food<=20&&!g.fl.warned){g.fl.warned=1;say('Your stomach is cramping. You need food.','sys');}
+  if(g.food>20)delete g.fl.warned;
+}
+function heal(n){const m=maxHp();const b=g.hp;g.hp=Math.min(m,g.hp+Math.max(0,Math.round(n)));return g.hp-b;}
+function gainXp(n){
+  n=Math.round(n*(1+calc().xp/100));g.xp+=n;let up=0;
+  while(g.lvl<99&&g.xp>=need(g.lvl)){g.xp-=need(g.lvl);g.lvl++;up++;}
+  if(g.lvl>=99)g.xp=Math.min(g.xp,need(98));
+  if(up){heal(maxHp()*.25);say('Level '+g.lvl+'. You stand a little steadier. (+'+up+' skill point'+(up>1?'s':'')+')','lvl');}
+  return n;
+}
+function gainEm(n){n=Math.round(n);g.em+=n;return n;}
+function lvlFx(pl,el_){ // xp/scrip falloff when far above the enemy
+  const d=pl-el_;return d>3?Math.max(.12,1-.1*(d-3)):d<0?Math.min(1.5,1-.06*d):1;
+}
+const damp=L=>L<8?.55+.056*L:1, lt=L=>clamp((L-10)/40,0,1);
+const ehp=L=>(18+8*L+.5*L*L)*damp(L)*(1+1.2*lt(L)), eatk=L=>(5+2.4*L+.03*L*L)*damp(L)*(1+1.5*lt(L)), edef=L=>(1+1.0*L)*damp(L);
+const xpOf=L=>5+1.5*L+.2*L*L, emOf=L=>(2+.9*L+.07*L*L)*.7;
+const rs=()=>({h:1+.5*g.re,a:1+.2*g.re,d:1+.12*g.re,r:1+.4*g.re});
+
+/* ---------- save / load / migrate ---------- */
+function save(){try{localStorage.setItem(KEY,JSON.stringify(g));}catch(e){}}
+function norm(o){ // fill missing fields so a loaded save always has every key
+  const f=fresh(),r=Object.assign(f,o);
+  ['comp','stats','ls'].forEach(k=>{r[k]=Object.assign(f[k],o[k]||{});});
+  r.comp.have=r.comp.have||{};r.comp.act=r.comp.act||[];r.comp.bond=r.comp.bond||{};
+  return r;
+}
+function load(){
+  try{
+    const s=localStorage.getItem(KEY);
+    if(s){const o=JSON.parse(s);if(o&&o.v===4)return norm(o);}
+  }catch(e){}
+  try{
+    const s=localStorage.getItem(OLDKEY);
+    if(s){const o=JSON.parse(s);if(o&&o.v===1)return migrate(o);}
+  }catch(e){}
+  return null;
+}
+function migrate(o){
+  const n=fresh();
+  n.lvl=Math.max(1,o.lvl|0);n.xp=o.xp|0;n.em=o.em|0;n.re=o.re|0;n.ech=o.ech|0;
+  n.eu=o.eu||{};n.up=o.up||{};n.lore=Object.assign({},o.lore||{});
+  n.kills=o.kills||{};n.stats.kills=Object.values(n.kills).reduce((a,b)=>a+b,0);
+  ['warden','ancient_guardian','hollow_king','ender_dragon'].forEach(b=>{if(o.bd&&o.bd[b])n.bdAll[b]=1;});
+  n.food=clamp(o.food|0,30,100);
+  n.inv={};
+  for(const id in (o.inv||{})){
+    if(LEGACY[id]){ // old weapon/armor -> gear instance
+      const b=GEAR[LEGACY[id]];const it={u:n.uid++,b:b.id,r:0,e:0,af:[],lk:0};n.gear.push(it);
+      if(o.eq&&(o.eq.w===id||o.eq.a===id))n.eq[b.slot]=it.u;
+    }else if(ITEMS[id]&&(ITEMS[id].t!=='weapon'&&ITEMS[id].t!=='armor'))n.inv[id]=o.inv[id];
+  }
+  if(!n.gear.some(x=>slotOf2(x)==='w')){const it={u:n.uid++,b:'w1',r:0,e:0,af:[],lk:0};n.gear.push(it);n.eq.w=it.u;}
+  if(!n.eq.w){const w=n.gear.find(x=>slotOf2(x)==='w');if(w)n.eq.w=w.u;}
+  n.log=[['Your old save was carried over: level, upgrades, echoes and items came with you. The story begins again.','sys']];
+  n.fl.migrated=1;
+  g=n;n.hp=maxHp();
+  return n;
+}
+const slotOf2=i=>GEAR[i.b].slot;
+
+/* ================= COMBAT ================= */
+const fnm=(f,cap)=>f.boss?f.n:(cap?'The ':'the ')+(f.el?'elite ':'')+f.n;
+const trList=f=>Object.keys(f.tr).filter(t=>TRAITN[t]).map(t=>TRAITN[t]);
+
+function mkFoe(id,L,o){
+  o=o||{};
+  const B=BOSSES[id],M=B||MOBS[id],ro=ROLES[M.r],s=rs();
+  const f={id:id,n:M.n,L:L,boss:B?1:0,el:o.el?1:0,t:0,tr:{},fz:0,mark:0,markv:0,bleed:[],stun:0,fuse:0,ph:0};
+  let h=ehp(L)*ro[0],a=eatk(L)*ro[1],d=edef(L)*ro[2];
+  if(B){h*=B.hpm;a*=B.am;d*=B.dm;}
+  if(f.el){h*=1.8;a*=1.25;d*=1.2;}
+  h*=s.h;a*=s.a;d*=s.d;
+  if(o.mult){h*=o.mult;a*=1+.45*(o.mult-1);d*=1+.2*(o.mult-1);f.trial=o.trial;}
+  (M.tr||[]).forEach(t=>{f.tr[t]=1;});
+  if(f.el){const n=R(1,2);for(let i=0;i<n;i++)f.tr[pick(ELITE_TR)]=1;}
+  if(f.tr.armored)d*=1.4;
+  if(f.tr.heavy)a*=1.25;
+  if(B&&B.mirror){const S=calc();a=Math.max(a,S.atk*.85);d=Math.max(d,S.def*.7);}
+  f.max=f.hp=Math.round(h);f.atk=a;f.def=d;
+  return f;
+}
+function startFight(f,o){
+  o=o||{};
+  const M=f.boss?BOSSES[f.id]:MOBS[f.id];
+  f.p={fc:Math.min(100,10*X('focus')+(g.rf>0?25:0)),brace:0,rip:0,sil:0,ub:calc().unb};
+  if(g.rf>0)g.rf--;
+  g.fight=f;g.view='fight';g.st={};
+  say((f.el?'Elite! ':'')+(M.intro||('A '+f.n+' lurches out of the haze.')),'hit');
+  if(f.el){const t=trList(f);if(t.length)say('It is '+t.join(' and ').toLowerCase()+'.','sys');}
+  if(f.boss)say(f.n+' is far stronger than anything you have fought. Guard when it telegraphs.','sys');
+  if(o.ambush){say('It strikes first!','hit');foeAct(false);if(g.fight)postWarn();}
+  else postWarn();
+}
+function warnNext(f){
+  if(!f.boss)return f.tr.fuse&&f.fuse>=2?'It is about to blow. Guard or kill it now.':'';
+  const B=BOSSES[f.id];
+  for(const p of B.pats)if(p.w&&(f.t+1)%p.e===0)return p.w;
+  return '';
+}
+function postWarn(){const f=g.fight;if(!f)return;const w=warnNext(f);if(w)say(w,'hit');}
+
+/* ---- damage helpers ---- */
+function die(){
+  const lost=Math.floor(g.em*.2);g.em-=lost;g.fight=null;ev=null;g.scene=null;
+  g.loc='camp';g.view='main';g.buff={};g.st={};g.stats.deaths++;
+  if(g.delve){say('The delve closes behind you.','sys');g.delve=null;}
+  g.hp=Math.ceil(maxHp()*.6);g.food=Math.max(g.food,40);UI.auto=false;UI.hunt=false;
+  say('You go down. The ash closes over you. You wake at Ember Camp, '+lost+' scrip lighter.','hit');
+}
+function hurt(d,msg,cls){
+  g.hp-=d;say(msg+' (-'+d+' HP)',cls||'hit');
+  if(g.hp>0)return false;
+  const f=g.fight;
+  if(f&&f.p.ub>0){f.p.ub--;g.hp=1;say('You refuse to fall. Unbroken! (1 HP)','lvl');return false;}
+  if(have('totem')){take('totem');g.hp=Math.ceil(maxHp()*.5);say('The Ember Charm burns out and drags you back. (HP '+g.hp+')','lvl');return false;}
+  die();return true;
+}
+function incoming(a,o,gd){
+  const S=calc(),f=g.fight;
+  if(!o.nd&&rnd()*100<S.dodge)return 0;
+  const D=S.def*(1-(o.pierce||0));
+  let d=a*a/(a+D)*rf(.92,1.08);
+  if(gd)d*=clamp(.5-S.stal/100,.2,.5);
+  if(f.p.brace>0)d*=1-(.4+.1*f.p.brace);
+  if(compOn('cog'))d*=1-(10+3*bondRank('cog'))/100;
+  return Math.max(1,Math.round(d));
+}
+const foeAtk=f=>f.atk*(f.tr.frenzy?1+.08*Math.min(f.fz,7):1);
+function foeHit(f,mult,o,gd,msg){ // returns true if player died
+  o=o||{};
+  const d=incoming(foeAtk(f)*mult,o,gd);
+  if(d===0){say(fnm(f,1)+' misses. You slip aside.','sys');return false;}
+  if(hurt(d,msg+(gd?' (guarded)':'')+'.'))return true;
+  if(f.hp>0&&f.tr.drain){const h=Math.round(d*.4);f.hp=Math.min(f.max,f.hp+h);}
+  if(!o.notr){
+    if(f.tr.poison&&!g.st.poison&&rnd()<.45){g.st.poison={d:Math.max(1,Math.round(foeAtk(f)*.1)),t:4};say('You are poisoned.','hit');}
+    if(f.tr.burn&&!g.st.burn&&rnd()<.4){g.st.burn={d:Math.max(1,Math.round(foeAtk(f)*.13)),t:3};say('You catch fire.','hit');}
+  }
+  const S=calc();
+  if(S.thorn&&f.hp>0){const th=Math.max(1,Math.round(d*S.thorn/100));f.hp-=th;}
+  return false;
+}
+function hitFoe(mult,o){ // returns damage dealt (0 on miss)
+  o=o||{};
+  const f=g.fight,S=calc(),P=f.p;
+  if(f.tr.evasive&&!o.sure&&rnd()<.15){say('You swing at '+fnm(f)+' but it slips aside.','sys');return 0;}
+  const a=S.atk*mult,d0=o.pierce?0:f.def;
+  let dmg=a*a/(a+d0)*rf(.92,1.08);
+  if(f.mark>0)dmg*=1+f.markv/100;
+  const crit=!!o.crit||rnd()*100<S.crit;
+  if(crit)dmg*=1+S.critd/100;
+  dmg=Math.max(1,Math.round(dmg));
+  f.hp-=dmg;
+  if(!o.quiet)say((o.tag||'')+(crit?'Critical! ':'')+(o.by?o.by+' hits ':'You hit ')+fnm(f)+' for '+dmg+'.','story');
+  if(S.ls)heal(dmg*S.ls/100);
+  if(!o.nf)P.fc=Math.min(100,P.fc+S.fgain);
+  if(f.tr.thorns&&!o.pierce){const th=Math.max(1,Math.round(dmg*.08));if(hurt(th,'Its spines cut you','hit'))return -1;}
+  return dmg;
+}
+
+/* ---- rounds ---- */
+function turn(actionFn){
+  const f=g.fight;if(!f)return;
+  let gd=false;
+  if(g.st.stun>0){g.st.stun--;say('You are stunned and cannot act!','hit');}
+  else{
+    const r=actionFn();if(r===-1||!g.fight)return;
+    gd=!!r;
+  }
+  if(!g.fight)return;
+  if(f.hp<=0){win();return;}
+  round(gd);
+}
+function round(gd){
+  const f=g.fight;f.t++;
+  if(f.tr.frenzy)f.fz++;
+  for(const b of f.bleed){f.hp-=b.d;b.t--;}
+  if(f.bleed.length)say(fnm(f,1)+' bleeds.','sys');
+  f.bleed=f.bleed.filter(b=>b.t>0);
+  if(f.tr.regen&&f.hp>0)f.hp=Math.min(f.max,f.hp+Math.round(f.max*.025));
+  if(f.hp<=0){win();return;}
+  compTurn(gd);
+  if(!g.fight)return;
+  if(f.hp<=0){win();return;}
+  foeAct(gd);
+  if(!g.fight)return;
+  if(f.p.rip>0&&f.hp>0){hitFoe(.7+.2*f.p.rip,{nf:1,tag:'Riposte! '});f.p.rip=0;if(!g.fight)return;if(f.hp<=0){win();return;}}
+  f.p.brace=0;
+  playerTick();
+  if(g.fight)postWarn();
+}
+function compTurn(gd){
+  const f=g.fight,S=calc();
+  for(const c of g.comp.act){
+    const r=bondRank(c);
+    if(c==='odo'&&f.t%3===0){const h=heal(maxHp()*(.03+.012*r));if(h>0)say('Odo mends you. (+'+h+' HP)','win');}
+    else if(c==='tamsin'){hitFoe(.22+.05*r,{pierce:1,nf:1,by:'Tamsin',tag:'An arrow. '});}
+    else if(c==='ilsa'){f.mark=Math.max(f.mark,2);f.markv=Math.max(f.markv,6+2*r);}
+    else if(c==='kest'&&gd){hitFoe(.8+.15*r,{nf:1,by:'Kest',tag:'Counter! '});}
+    else if(c==='lumen'){f.p.fc=Math.min(100,f.p.fc+2+r);}
+    if(!g.fight||f.hp<=0)return;
+  }
+}
+function foeAct(gd){
+  const f=g.fight,B=f.boss?BOSSES[f.id]:null,M=B||MOBS[f.id];
+  if(f.stun>0){f.stun--;say(fnm(f,1)+' is stunned and does nothing.','sys');return;}
+  if(B){
+    const pct=f.hp/f.max;
+    if(f.ph<1&&pct<=.66){f.ph=1;f.atk*=1.1;say(B.ph[0],'hit');}
+    if(f.ph<2&&pct<=.33){f.ph=2;f.atk*=1.12;say(B.ph[1],'hit');}
+  }
+  if(f.tr.fuse){
+    f.fuse++;
+    if(f.fuse===1){say(fnm(f,1)+' hisses. Its fuse is lit.','hit');return;}
+    if(f.fuse===2){say(fnm(f,1)+' swells. It blows next turn. Guard or kill it now.','hit');return;}
+    const d=incoming(f.atk*(M.boom||3),{pierce:.3,nd:1},gd);
+    g.fight=null;g.view=g.delve?'delve':'main';g.st={};
+    if(!hurt(d,fnm(f,1)+' detonates'+(gd?'; your guard takes the worst of it':'')+'.')&&g.delve)g.view='delve';
+    return;
+  }
+  if(compOn('cog')&&rnd()<.06+.02*bondRank('cog')){say('Cog steps in front of the blow and shrugs it off.','sys');return;}
+  const pat=B?B.pats.find(p=>f.t%p.e===0):null;
+  if(pat){special(f,pat,gd);return;}
+  if(foeHit(f,1,{},gd,fnm(f,1)+' '+(M.hv||'attacks you')))return;
+  if(f.tr.swift&&g.fight&&f.hp>0&&rnd()<.3)foeHit(f,.6,{notr:1},gd,fnm(f,1)+' strikes again');
+}
+function special(f,p,gd){
+  const kind=p.k,m=p.m;
+  const heavy={sonic:1,beam:.5,breath:.35};
+  if(heavy[kind]!=null){foeHit(f,p.d,{pierce:heavy[kind]},gd,m);return;}
+  if(kind==='multi'){for(let i=0;i<3;i++){if(!g.fight||foeHit(f,p.d,{},gd,m))return;}return;}
+  if(kind==='drain'){
+    const d=incoming(foeAtk(f)*p.d,{},gd);
+    if(d===0){say(m+', but you slip aside.','sys');return;}
+    f.hp=Math.min(f.max,f.hp+Math.round(d*.9));hurt(d,m+(gd?' (guarded)':''));return;
+  }
+  if(kind==='summon'){f.hp=Math.min(f.max,f.hp+Math.round(f.max*.05));foeHit(f,p.d,{},gd,m);return;}
+  if(kind==='poison'){if(foeHit(f,p.d,{notr:1},gd,m))return;if(!g.st.poison){g.st.poison={d:Math.max(1,Math.round(foeAtk(f)*.12)),t:4};say('You are poisoned.','hit');}return;}
+  if(kind==='burn'){if(foeHit(f,p.d,{notr:1},gd,m))return;if(!g.st.burn){g.st.burn={d:Math.max(1,Math.round(foeAtk(f)*.15)),t:3};say('You catch fire.','hit');}return;}
+  if(kind==='stun'){if(foeHit(f,p.d,{notr:1},gd,m))return;if(!gd){g.st.stun=1;say('You are bound and cannot act next turn!','hit');}return;}
+  if(kind==='silence'){if(foeHit(f,p.d,{notr:1},gd,m))return;if(!gd){f.p.sil=2;say('You cannot use skills for a moment.','hit');}return;}
+  if(kind==='rewind'){f.hp=Math.min(f.max,f.hp+Math.round(f.max*.08));f.p.fc=0;foeHit(f,p.d,{notr:1},gd,m);return;}
+  foeHit(f,p.d,{},gd,m);
+}
+function playerTick(){
+  const f=g.fight;
+  for(const k of ['poison','burn']){
+    const s=g.st[k];if(!s)continue;
+    if(k==='poison'&&compOn('ilsa')){delete g.st[k];say('Ilsa washes the poison from your veins.','sys');continue;}
+    if(hurt(s.d,k==='poison'?'Poison burns in your veins':'You are burning','hit'))return;
+    if(--s.t<=0)delete g.st[k];
+  }
+  const S=calc();if(S.regen)heal(maxHp()*S.regen/100);
+  for(const n of Object.keys(g.buff)){if(--g.buff[n].t<=0){delete g.buff[n];say('Your '+n+' fades.','sys');}}
+  if(f.mark>0)f.mark--;
+  if(f.p.sil>0)f.p.sil--;
+}
+
+/* ---- player actions ---- */
+function aAttack(){turn(()=>{if(hitFoe(1,{})===-1)return -1;return false;});}
+function aGuard(){turn(()=>{say('You raise your guard.','sys');return true;});}
+function skillUse(id){
+  const f=g.fight,P=f.p,s=SKD[id],r=g.sk[id]||0;
+  if(!r||P.fc<s.c||P.sil>0)return;
+  turn(()=>{
+    P.fc-=s.c;
+    if(id==='e2'){if(hitFoe(1.7+.25*r,{tag:'Power Strike! '})===-1)return -1;}
+    else if(id==='e4'){const S=calc();if(hitFoe(.9,{tag:'Rend! '})===-1)return -1;f.bleed.push({d:Math.max(1,Math.round(S.atk*(.3+.08*r))),t:3});}
+    else if(id==='e6'){if(hitFoe((1.2+.2*r)*(1+1.4*(1-Math.max(0,f.hp)/f.max)),{tag:'Execute! '})===-1)return -1;}
+    else if(id==='b2'){P.brace=r;say('You brace for the next blow.','sys');}
+    else if(id==='b4'){P.rip=r;say('You guard and wait for an opening.','sys');return true;}
+    else if(id==='b6'){const h=heal(maxHp()*(.18+.06*r));say('Second Wind. (+'+h+' HP)','win');}
+    else if(id==='s2'){if(hitFoe(.9+.15*r,{pierce:1,tag:'You hurl scrap. '})===-1)return -1;}
+    else if(id==='s4'){f.mark=5;f.markv=15+5*r;say('You mark '+fnm(f)+'. It takes '+f.markv+'% more damage.','sys');}
+    else if(id==='s6'){if(hitFoe(1.3+.1*r,{crit:1,sure:1,tag:'Lucky Break! '})===-1)return -1;}
+    return false;
+  });
+}
+function flee(){
+  const f=g.fight;
+  if(f.boss){say('There is nowhere to run.','hit');turn(()=>false);return;}
+  const free=f.el&&bl('tower')>=2;
+  if(free||rnd()<.55+calc().dodge/200){
+    g.fight=null;g.view=g.delve?'delve':'main';g.st={};say('You break away and lose it in the haze.','sys');
+    if(g.delve){say('The delve is over.','sys');g.delve=null;g.view='main';}
+    return;
+  }
+  say('You stumble. It is on you.','hit');turn(()=>false);
+}
+
+/* ---- items ---- */
+const isUsable=id=>{const t=ITEMS[id]&&ITEMS[id].t;return t==='food'||t==='heal'||t==='buff'||t==='tool';};
+function applyItem(id){ // returns true if consumed
+  const it=ITEMS[id],S=calc();
+  if(it.t==='heal'){
+    take(id);const h=heal(maxHp()*it.hpp/100*(1+S.heal/100));
+    if(it.cure){delete g.st.poison;delete g.st.burn;}
+    say('You drink '+it.n+'. (+'+h+' HP)'+(it.cure?' Ailments cleared.':''),'loot');return true;
+  }
+  if(it.t==='food'){
+    take(id);const km=1+.1*bl('kitchen'),fd=Math.round(it.food*km);
+    g.food=Math.min(100,g.food+fd);
+    const h=heal(maxHp()*(it.hpp+(bl('kitchen')>=5?2:0))/100);
+    say('You eat '+it.n+'. (+'+fd+' food'+(h?', +'+h+' HP':'')+')','loot');
+    if(it.bad&&rnd()<.4){return !hurt(Math.max(2,Math.round(maxHp()*.03)),'Your stomach turns',  'hit')||true;}
+    return true;
+  }
+  if(it.t==='buff'){
+    if(!g.fight){say('Save it for a fight.','sys');return false;}
+    take(id);g.buff[it.b]={m:it.m,t:it.turns+1};
+    say('You drink '+it.n+'. ('+it.b[0].toUpperCase()+it.b.slice(1)+' x'+it.m+' for '+it.turns+' turns)','loot');return true;
+  }
+  if(it.t==='tool'){
+    const f=g.fight;if(!f)return false;
+    if(id==='pearl'){
+      if(f.boss){say('The smoke thins to nothing. This place will not let you leave.','hit');take(id);return true;}
+      take(id);g.fight=null;g.view='main';g.st={};if(g.delve){g.delve=null;}
+      say('You throw the Smoke Bomb and slip away in the haze.','sys');return true;
+    }
+    if(id==='tnt'){take(id);const d=Math.round(30+g.lvl*4.5);f.hp-=d;say('You light the Blast Charge and throw it. It deals '+d+'.','loot');return true;}
+    if(id==='stunb'){take(id);f.stun=2;say('The Flash Bomb whites out the world. '+fnm(f,1)+' staggers.','loot');return true;}
+  }
+  return false;
+}
+function useItem(id){
+  if(!have(id))return;
+  if(!g.fight){applyItem(id);return;}
+  if(ITEMS[id].t==='buff'&&g.buff[ITEMS[id].b]){say('That is already active.','sys');return;}
+  const free=rnd()*100<calc().qf;
+  if(free){const done=applyItem(id);if(done&&g.fight&&g.fight.hp<=0)win();if(done)say('Quick fingers. No turn spent.','sys');return;}
+  turn(()=>{const done=applyItem(id);if(!g.fight)return -1;return false;});
+}
+const bestHeal=()=>['potion3','potion2','potion'].find(have)||null;
+
+/* ---- auto fight ---- */
+function autoStep(){
+  const f=g.fight;if(!f)return;
+  const P=f.p,S=calc(),hp=g.hp/S.hp,ok=id=>g.sk[id]&&P.fc>=SKD[id].c&&P.sil<=0;
+  if(hp<.4){
+    if(ok('b6')){skillUse('b6');return;}
+    const h=bestHeal();if(h){useItem(h);return;}
+    if(!f.boss&&hp<.25){flee();return;}
+  }
+  const warn=warnNext(f);
+  if(warn){if(ok('b2')&&!P.brace){skillUse('b2');return;}if(ok('b4')){skillUse('b4');return;}aGuard();return;}
+  const fhp=f.hp/f.max,long=f.max>S.atk*5;
+  if(ok('e6')&&fhp<.45){skillUse('e6');return;}
+  if(ok('s4')&&!f.mark&&long){skillUse('s4');return;}
+  if(ok('s6')&&long){skillUse('s6');return;}
+  if(ok('e2')&&(long||P.fc>=70)){skillUse('e2');return;}
+  if(ok('e4')&&long&&!f.bleed.length){skillUse('e4');return;}
+  if(ok('s2')&&P.fc>=60){skillUse('s2');return;}
+  aAttack();
+}
+
+/* ---- victory ---- */
+function bondGain(c,n){
+  const before=bondRank(c);
+  g.comp.bond[c]=Math.max(0,(g.comp.bond[c]||0)+(n>0?n*(1+.15*X('bondx')):n));
+  if(bondRank(c)>before)say(COMP[c].n+' trusts you more. (Bond rank '+bondRank(c)+')','lvl');
+}
+function win(){
+  const f=g.fight,B=f.boss?BOSSES[f.id]:null,M=B||MOBS[f.id];
+  const dv=g.delve;
+  g.fight=null;g.view=dv?'delve':'main';g.st={};
+  const S=calc(),fx=lvlFx(g.lvl,f.L),R_=rs().r,fl=dv?dv.floor:0;
+  g.kills[f.id]=(g.kills[f.id]||0)+1;g.lk[f.id]=(g.lk[f.id]||0)+1;
+  g.stats.kills++;g.ls.kills++;
+  if(f.el){g.stats.elites++;g.ls.elites++;}
+  if(f.trial){trialWin(f);return;}
+  const night=isNight(),storm=g.wx===3;
+  const xpr=xpOf(f.L)*(B?B.xp*4:1)*(f.el?2.5:1)*R_*fx*(1+.1*fl)*(night?1.15:1);
+  const emr=emOf(f.L)*(B?B.em*8:1)*(f.el?3:1)*R_*fx*(1+S.em/100)*(1+.1*fl)*(storm?1.15:1);
+  const em=gainEm(emr),xp=gainXp(xpr);
+  say(fnm(f,1)+' falls. (+'+xp+' XP, +'+em+' scrip)','win');
+  const drops=[],pm=Math.min(1,0+1)*(1+S.loot/100)*(f.el?1.6:1)*(night?1.1:1);
+  for(let pass=0;pass<(f.el?2:1);pass++){
+    for(const l of (M.loot||[])){
+      const id=l[0],p=l[1],lo=l[2],hi=l[3];
+      if(rnd()<(p>=1?1:Math.min(.98,p*pm))){const n=lo?R(lo,hi||lo):1;give(id,n);drops.push(nm(id)+(n>1?' x'+n:''));}
+    }
+  }
+  if(drops.length)say('Drops: '+drops.join(', ')+'.','loot');
+  // gear
+  const gm=(fx<.5?.5:1);
+  const gc=.08*(1+S.loot/100)*(f.el?3:1)*gm;
+  const gearMode=B?'b':(f.el||fl>=3?'e':'n');
+  const ng=B?2:(rnd()<gc?1:0);
+  for(let i=0;i<ng;i++){
+    const it=dropGear(f.L+(dv?fl:0),gearMode,B?2:null);
+    const k=addGear(it);if(k)say('Found '+gname(k)+'.','loot');
+  }
+  if(f.el&&rnd()<(dv?.14:.07)){give('rift_core');say('An elite leaves a Rift Core behind.','loot');}
+  // lamplighter pages
+  if(rnd()<(B?.25:.012)){
+    const left=PAGES.map((t,i)=>i).filter(i=>!g.pg[i]);
+    if(left.length){const i=pick(left);g.pg[i]=1;say('You find a Lamplighter page ('+pageCount()+'/'+PAGES.length+'): "'+PAGES[i]+'"','lvl');}
+  }
+  // companions grow closer
+  if(S.bl)heal(maxHp()*S.bl/100);
+  for(const c of g.comp.act)bondGain(c,B?3:.3);
+  if(B){
+    const first=!g.bd[f.id];
+    g.bd[f.id]=1;g.bdAll[f.id]=1;
+    const rl=RELICS.find(r=>r.from===f.id);
+    if(rl&&!g.gear.some(x=>x.rl===rl.id)&&(first||rnd()<.12)){
+      const it=mkGear(rl.slot,rl.tier,4,rl);g.gear.push(it);say('Relic: '+rl.n+'. '+rl.d,'lvl');
+    }
+    if(B.won)say(B.won,'lvl');
+    lore('b_'+f.id);
+    if(first)for(const z in ZONES)if(ZONES[z].req===f.id)say('The way to '+ZONES[z].n+' is open.','sys');
+    if(first&&f.id==='hollow_king')say('You feel a Rebirth waiting back at camp, if you want it.','sys');
+  }
+  if(dv){delveWin(f);}
+  if(g.bless&&--g.bless.left<=0){say('Your blessing fades.','sys');g.bless=null;}
+  checkQuests();checkAch();
+}
+
+/* ================= WORLD: exploring, events, delves, bounties, shop, forge ================= */
+const zoneL=Z=>R(Z.lo,Z.hi);
+const elChance=()=>.07+(isNight()?.03:0)+.01*g.re;
+function randFoe(Z,L,forceEl){
+  const id=wpick(Z.enc),fuse=MOBS[id].tr.indexOf('fuse')>=0;
+  return mkFoe(id,L,{el:!fuse&&(forceEl||rnd()<elChance())});
+}
+function checkQuests(){
+  for(const q of QUESTS){
+    const s=g.q[q.id];
+    if(s&&s.s==='active'&&!s.n){const p=qProg(q);if(p[0]>=p[1]){s.n=1;say('Quest ready: '+q.title+'. Report to camp.','lvl');}}
+  }
+}
+function hazard(pct,msg){return hurt(Math.max(2,Math.round(maxHp()*pct/100)),msg);}
+
+/* ---------- movement ---------- */
+function explore(){
+  const Z=ZONES[g.loc];if(g.loc==='camp'||g.fight)return;
+  tick(1,1.4);
+  g.prog[g.loc]=(g.prog[g.loc]||0)+1;
+  const r=g.nx!=null?g.nx:rnd();g.nx=rnd();
+  if(r<.5){
+    const amb=rnd()<.1-.03*(bl('tower')>=1?1:0)-.03*(bl('tower')>=4?1:0);
+    startFight(randFoe(Z,zoneL(Z)),{ambush:amb});
+  }else if(r<.74){
+    const id=wpick(Z.find);let n=R(1,2);if(rnd()*100<calc().loot)n++;
+    give(id,n);say(pick(Z.flavor)+' You pick up '+nm(id)+(n>1?' x'+n:'')+'.','loot');
+  }else runEvent(pick(Z.ev));
+  checkQuests();
+}
+function gather(){
+  const Z=ZONES[g.loc];if(g.loc==='camp'||g.fight)return;
+  tick(2,2.6);
+  if(rnd()<.12){say('You are not alone out here.','hit');startFight(randFoe(Z,zoneL(Z)),{ambush:true});return;}
+  const got={};
+  for(let i=0;i<R(2,3);i++){const id=wpick(Z.find);got[id]=(got[id]||0)+R(1,2)+(rnd()*100<calc().loot?1:0);}
+  const txt=[];for(const id in got){give(id,got[id]);txt.push(nm(id)+(got[id]>1?' x'+got[id]:''));}
+  say('You comb the area slowly. '+txt.join(', ')+'.','loot');
+  checkQuests();
+}
+function travel(z){
+  if(!unlocked(z))return;
+  tick(3,3);g.loc=z;g.view='main';g.nx=null;
+  const Z=ZONES[z];say(Z.arrive);lore('z_'+z);
+  if(z!=='camp'){
+    const sid='arr_'+z;
+    if(SC[sid]&&!g.seen[sid]){g.seen[sid]=1;scene(sid);}
+  }
+}
+const toCamp=()=>{travel('camp');};
+function rest(){
+  tick(8,5);g.hp=maxHp();g.st={};
+  if(g.food<30&&!foodItem()&&g.em<30&&g.fl.charity!==g.day){
+    g.fl.charity=g.day;give('bread',2);say('Mara presses two rounds of hardtack into your hands. "On the ledger."','npc');
+  }
+  let msg='You sleep until the ash stops falling. HP restored.';
+  const b=bl('infirmary');
+  if(b>=1&&g.rest!==g.day){const x=gainXp(need(g.lvl)*.012*b);msg+=' (+'+x+' XP)';}
+  if(b>=4)g.rf=3;
+  g.rest=g.day;
+  say(msg,'win');
+}
+function bounty(){ // gain: ensure board for today
+  if(g.bt&&g.bt.day===g.day)return;
+  const keep=g.bt?g.bt.list.filter(b=>b.s===1):[];
+  const zs=Object.keys(ZONES).filter(z=>z!=='camp'&&unlocked(z));
+  while(keep.length<3){
+    const z=pick(zs.slice(-Math.max(2,Math.ceil(zs.length*.6)))),Z=ZONES[z];
+    const m=wpick(Z.enc),n=R(5,9),L=Math.round((Z.lo+Z.hi)/2);
+    keep.push({m:m,z:z,n:n,em:Math.round(emOf(L)*n*1.8),xp:Math.round(xpOf(L)*n*1.4),s:0,k0:0});
+  }
+  g.bt={day:g.day,list:keep};
+}
+const bProg=b=>Math.max(0,(g.lk[b.m]||0)-b.k0);
+
+/* ---------- events ---------- */
+const zlm=()=>{const Z=ZONES[g.loc];return Math.round((Z.lo+Z.hi)/2);};
+function bless(id){
+  const b=id?BSD[id]:pick(BLESS);
+  g.bless={id:b.id,left:25};say('Blessed: '+b.n+'. '+b.d+' (25 fights)','lvl');
+}
+function findMats(n){const Z=ZONES[g.loc],got={};for(let i=0;i<n;i++){const id=wpick(Z.find);got[id]=(got[id]||0)+R(1,2);}const t=[];for(const id in got){give(id,got[id]);t.push(nm(id)+' x'+got[id]);}return t.join(', ');}
+function buyFree(id,mult){const p=Math.round(price(id)*mult);if(g.em<p){say('You cannot afford that.','sys');return;}g.em-=p;give(id);say('You buy '+nm(id)+' for '+p+' scrip.','sys');}
+const foodItem=()=>['apple','bread','pork','stew','ration','feast','flesh'].find(have);
+const EVENTS={
+  chest:()=>({text:'A strongbox sits half-buried in the ash, its lid warped shut.',opts:[
+    {l:'Pry it open',f:()=>{
+      if(rnd()<.62){const e=gainEm(emOf(zlm())*R(25,45)/10);say('Inside: '+findMats(2)+' and '+e+' scrip.','loot');
+        if(rnd()<.15){const k=addGear(dropGear(zlm(),'n'));if(k)say('And a piece of gear: '+gname(k)+'.','loot');}}
+      else hazard(R(8,14),'A tripwire snaps. Arrows hiss out of the dust.');}},
+    {l:'Smash the lock',f:()=>{const e=gainEm(emOf(zlm())*R(12,22)/10);say('The lid splinters. Most of it survives. (+'+e+' scrip)','loot');}},
+    {l:'Leave it',f:()=>say('You leave it. Some things are bait.','sys')}]}),
+  campfire:()=>({text:'Someone left a campfire smoldering under a collapsed awning.',opts:[
+    {l:'Rest by the fire',f:()=>{const h=heal(maxHp()*.25);g.food=Math.min(100,g.food+8);tick(2,0);say('You warm your hands and eat something charred. (+'+h+' HP, +8 food)','win');}},
+    {l:'Rake the ashes',f:()=>{const n=R(1,3);give('coal',n);say('Good cinder under the grey. Cinder x'+n+'.','loot');}}]}),
+  traveler:()=>({text:'A gaunt traveler waves from behind a wall of slag. "Spare any food? I know a few things."',opts:[
+    {l:'Give food',f:()=>{
+      const fid=foodItem();
+      if(!fid){say('You have nothing to give. He nods like he expected that.','sys');return;}
+      take(fid);const e=gainEm(emOf(zlm())*R(30,50)/10),x=gainXp(xpOf(zlm())*2);
+      say('He gulps down the '+nm(fid)+' and presses '+e+' scrip into your hand. "Stay off the east road." (+'+x+' XP)','loot');}},
+    {l:'Ask for news',f:()=>{const x=gainXp(xpOf(zlm())*1.2);say('He talks for an hour about things you half-believe. (+'+x+' XP)','sys');}},
+    {l:'Walk on',f:()=>say('You keep walking. He watches until you are out of sight.','sys')}]}),
+  merchant:()=>({text:'A wandering merchant clanks past with a mule and a lantern. "Special prices, friend. Today only. Every day is today only."',opts:[
+    {l:'Healing Tonic ('+Math.round(price('potion')*.85)+')',f:()=>buyFree('potion',.85)},
+    {l:'Smoke Bomb ('+Math.round(price('pearl')*.85)+')',f:()=>buyFree('pearl',.85)},
+    {l:'Mystery bundle ('+Math.round(emOf(zlm())*6)+')',f:()=>{const p=Math.round(emOf(zlm())*6);if(g.em<p){say('You cannot afford that.','sys');return;}g.em-=p;say('The bundle holds: '+findMats(4)+'.','loot');}},
+    {l:'Walk on',f:()=>say('"Suit yourself." The mule gives you a look.','sys')}]}),
+  whisper:()=>({text:'A voice, close and kind, says your name. Nobody is there.',opts:[
+    {l:'Listen',f:()=>{const r=rnd();
+      if(r<.45){const x=gainXp(xpOf(zlm())*4);say('It tells you something true about the dark. You understand it for a moment. (+'+x+' XP)','lvl');}
+      else if(r<.75)hazard(10,'The voice stops being kind.');
+      else{say('It was not alone.','hit');const Z=ZONES[g.loc];startFight(randFoe(Z,zoneL(Z)),{ambush:true});}}},
+    {l:'Cover your ears',f:()=>say('You walk on, humming. It follows for a while.','sys')}]}),
+  ruin:()=>({text:'A ruined room opens off the road, half-buried. Something glints inside.',opts:[
+    {l:'Search carefully',f:()=>{const e=gainEm(emOf(zlm())*R(10,20)/10);say('You find '+findMats(2)+' and '+e+' scrip.','loot');}},
+    {l:'Dig deeper',f:()=>{
+      if(rnd()<.55){const k=addGear(dropGear(zlm(),'n',1));say('Under the rubble: '+(k?gname(k):'a piece of gear')+'.','loot');}
+      else hazard(R(10,16),'The floor gives way beneath you.');}},
+    {l:'Skip it',f:()=>say('You leave the ruin to the dust.','sys')}]}),
+  pilgrim:()=>({text:'A pilgrim in white sits by the road, a bowl in his lap. "Walk with me a moment."',opts:[
+    {l:'Share food',f:()=>{const fid=foodItem();if(!fid){say('You have nothing to share. He smiles anyway.','sys');return;}take(fid);bless();}},
+    {l:'Ask for road-wisdom',f:()=>{const x=gainXp(xpOf(zlm())*2);say('"The road is a conversation." You think about that for miles. (+'+x+' XP)','sys');}},
+    {l:'Walk on',f:()=>say('You nod. He nods. The road goes on.','sys')}]}),
+  shard:()=>({text:'A shard of rift-glass hums in the dirt, violet light pulsing under the surface.',opts:[
+    {l:'Touch it',f:()=>{if(rnd()<.5){const x=gainXp(xpOf(zlm())*5);say('Light floods your veins. You understand something you cannot name. (+'+x+' XP)','lvl');}else hazard(12,'It bites back. Your arm goes numb.');}},
+    {l:'Shatter it',f:()=>{if(rnd()<.35){give('rift_core');say('It cracks into a perfect little Rift Core.','loot');}else hazard(8,'The shards fly like knives.');}},
+    {l:'Leave it',f:()=>say('You give it a wide berth.','sys')}]}),
+  altar:()=>({text:'A bloodstained altar stands in the open, a bowl cut into the top. It is waiting for something.',opts:[
+    {l:'Offer blood (-15% HP)',f:()=>{
+      const c=Math.round(maxHp()*.15);if(g.hp<=c+2){say('You are too weak to give anything. The altar is patient.','sys');return;}
+      g.hp-=c;const e=gainEm(emOf(zlm())*R(70,110)/10);say('You bleed into the bowl. Coins rise in the dark. (-'+c+' HP, +'+e+' scrip)','loot');}},
+    {l:'Pray',f:()=>{if(rnd()<.35)bless();else say('Nothing answers. The altar is not offended.','sys');}},
+    {l:'Smash it',f:()=>{if(rnd()<.3){const k=addGear(dropGear(zlm(),'n',1));say('It cracks open on '+(k?gname(k):'gear')+'.','loot');}else hazard(10,'A backlash of old magic throws you across the ground.');}},
+    {l:'Leave it',f:()=>say('You leave it as you found it.','sys')}]}),
+  cabin:()=>({text:'A cabin sits crooked in the gloom. Smoke curls from the chimney. Somebody is home, or something is.',opts:[
+    {l:'Knock',f:()=>{
+      if(rnd()<.6){const h=heal(maxHp()*.3);g.food=Math.min(100,g.food+15);give('stew');say('A hermit shoves a bowl at you and says nothing. You eat and rest. (+'+h+' HP, +15 food, Cap Stew x1)','win');}
+      else{say('The door swings open on its own. Something inside was waiting.','hit');const Z=ZONES[g.loc];startFight(randFoe(Z,zoneL(Z)),{ambush:true});}}},
+    {l:'Search around the back',f:()=>say('Behind the cabin: '+findMats(2)+'.','loot')},
+    {l:'Walk past',f:()=>say('You do not look at the window as you pass.','sys')}]}),
+  shrine:()=>({text:'A small shrine stands at a crossing, candles guttering in the wind. A bowl waits for an offering.',opts:[
+    {l:'Offer scrip ('+Math.round(emOf(zlm())*6)+')',f:()=>{const p=Math.round(emOf(zlm())*6);if(g.em<p){say('You cannot afford that.','sys');return;}g.em-=p;bless();}},
+    {l:'Pray',f:()=>{if(rnd()<.4)bless();else say('The candles lean toward you, then away.','sys');}},
+    {l:'Leave',f:()=>say('You move on, a little lighter, a little unsure.','sys')}]}),
+  shaft:()=>({text:'A collapsed shaft yawns beside the path. Ore glints in the rubble, and the dark below has a floor.',opts:[
+    {l:'Dig',f:()=>{if(rnd()<.65){const n=R(2,4);give('iron_ore',n);say('You haul out Rust Ore x'+n+'. And '+findMats(1)+'.','loot');}else hazard(R(10,14),'The ceiling lets go.');}},
+    {l:'Descend (delve)',f:()=>startDelve(g.loc)},
+    {l:'Move on',f:()=>say('Not worth it. Probably.','sys')}]}),
+  trap:()=>({text:'A tripwire glints across the path, strung with old bells. Someone wanted visitors to announce themselves.',opts:[
+    {l:'Disarm it',f:()=>{if(rnd()*100<45+calc().crit){const e=gainEm(emOf(zlm())*R(20,35)/10);say('You cut the wire. The cache behind it pays '+e+' scrip and '+findMats(1)+'.','loot');}else hazard(R(10,15),'The wire snaps and the bells scream.');}},
+    {l:'Step over carefully',f:()=>{if(rnd()<.7)say('You step through without a sound.','sys');else hazard(8,'A second wire, lower down.');}},
+    {l:'Back away',f:()=>say('You find another way.','sys')}]})
+};
+function runEvent(id){ev=EVENTS[id]();g.view='event';say(ev.text);}
+function choose(i){const o=ev.opts[i];ev=null;g.view='main';o.f();if(g.view==='event'&&!g.fight&&!g.scene)g.view='main';checkQuests();}
+
+/* ---------- delves ---------- */
+function startDelve(z){
+  const Z=ZONES[z];
+  g.delve={z:z,floor:0,rested:0};
+  say('You descend into the dark beneath the '+Z.n+'. The stair does not go back up.','hit');
+  lore('z_'+z);
+  nextFloor();
+}
+function nextFloor(){
+  const d=g.delve,Z=ZONES[d.z];d.floor++;
+  tick(1,1.5);
+  const boss=d.floor%5===0,L=Z.hi+Math.floor(d.floor*.7);
+  if(boss)say('Floor '+d.floor+': something large waits at the stair.','hit');else say('Floor '+d.floor+'.','sys');
+  startFight(randFoe(Z,L,boss||rnd()<.12));
+}
+function delveWin(f){
+  const d=g.delve;
+  if(d.floor>(g.dvBest[d.z]||0))g.dvBest[d.z]=d.floor;
+  say('Floor '+d.floor+' cleared.','sys');g.view='delve';
+}
+function delveLeave(){
+  const d=g.delve,Z=ZONES[d.z],fl=d.floor;
+  const n=1+Math.floor(fl/3),L=Z.hi+Math.floor(fl*.7);
+  say('You climb out with the day\'s spoils.','win');
+  for(let i=0;i<n;i++){const k=addGear(dropGear(L,'d',fl>=6?2:1));if(k)say('Chest: '+gname(k)+'.','loot');}
+  const em=gainEm(emOf(L)*fl*3);say('Chest: +'+em+' scrip.','loot');
+  if(fl>=3){const c=R(1,1+Math.floor(fl/5));give('rift_core',c);say('Chest: Rift Core x'+c+'.','loot');}
+  if(fl>=3){g.stats.delves++;g.ls.delves++;}
+  g.delve=null;g.view='main';
+  checkQuests();checkAch();
+}
+function delveRest(){const d=g.delve;if(d.floor-d.rested<3)return;d.rested=d.floor;const h=heal(maxHp()*.35);say('You catch your breath on the landing. (+'+h+' HP)','win');}
+
+/* ---------- companions ---------- */
+const slots=()=>1+(g.lvl>=20?1:0)+(g.lvl>=40?1:0);
+function recruit(c){
+  if(g.comp.have[c])return;
+  g.comp.have[c]=1;
+  say(COMP[c].n+' joins you. ('+COMP[c].role+': '+COMP[c].d+')','lvl');
+  if(g.comp.act.length<slots())g.comp.act.push(c);
+  else say('Your party is full. Swap members in Party.','sys');
+}
+function togglePartner(c){
+  const i=g.comp.act.indexOf(c);
+  if(i>=0){g.comp.act.splice(i,1);return;}
+  if(g.comp.act.length>=slots()){say('Your party is full.','sys');return;}
+  g.comp.act.push(c);
+}
+
+/* ---------- scenes ---------- */
+function condOK(c){return c==='allComps'?Object.keys(COMP).every(x=>g.comp.have[x]):true;}
+function applyEff(e){
+  if(!e)return;
+  if(e.f){g.fl[e.f]=1;if(e.f.indexOf('end_')===0){g.ends[e.f]=1;lore(e.f);}}
+  if(e.it)for(const k in e.it){give(k,e.it[k]);say('Received '+nm(k)+(e.it[k]>1?' x'+e.it[k]:'')+'.','loot');}
+  if(e.lore)lore(e.lore);
+  if(e.comp)recruit(e.comp);
+  if(e.bond)bondGain(e.bond[0],e.bond[1]);
+  if(e.echo){g.ech+=e.echo;say('+'+e.echo+' Echoes.','lvl');}
+  if(e.em){const v=gainEm(e.em);say('+'+v+' scrip.','loot');}
+  if(e.xp){const v=gainXp(e.xp);say('+'+v+' XP.','lvl');}
+  if(e.bld){g.bld[e.bld[0]]=Math.max(bl(e.bld[0]),e.bld[1]);say('The '+BLD[e.bld[0]].n+' is now yours to use.','lvl');}
+  if(e.page){for(let n=0;n<e.page;n++){const left=PAGES.map((t,i)=>i).filter(i=>!g.pg[i]);if(left.length){const i=pick(left);g.pg[i]=1;say('Lamplighter page ('+pageCount()+'/'+PAGES.length+'): "'+PAGES[i]+'"','lvl');}}}
+  if(e.q&&!g.q[e.q]){g.q[e.q]={s:'active'};say('Quest accepted: '+QD[e.q].title+'.','sys');}
+  if(e.title){g.titles[e.title]=1;say('Title earned: '+e.title+'.','lvl');}
+}
+function scene(id){
+  const s=SC[id];if(!s)return;
+  s.l.forEach(t=>say(t,'npc'));
+  if(s.c&&s.c.filter(c=>condOK(c.if)).length){g.scene={id:id};g.view='scene';return;}
+  applyEff(s.e);
+}
+function sceneChoice(i){
+  const s=SC[g.scene.id],list=s.c.filter(c=>condOK(c.if)),c=list[i];
+  g.scene=null;g.view='main';
+  c.l.forEach(t=>say(t,'npc'));
+  applyEff(c.e);applyEff(s.e);
+  checkQuests();checkAch();
+}
+
+/* ---------- quests ---------- */
+const qDone=id=>!!(g.q[id]&&g.q[id].s==='done');
+const qOpen=q=>(!q.req||q.req.every(qDone))&&(!q.a||act()>=q.a)&&!g.q[q.id];
+function qProg(q){
+  const o=q.o;
+  switch(o.k){
+    case 'kill':return BOSSES[o.m]?[g.bd[o.m]?1:0,1]:[g.lk[o.m]||0,o.n];
+    case 'have':return [have(o.i),o.n];
+    case 'explore':return [g.prog[o.z]||0,o.n];
+    case 'stat':return [g.ls[o.s]||0,o.n];
+    case 'pages':return [pageCount(),o.n];
+    case 'gear':{const w=eqi('w');return [w?tierOf(w):0,o.t];}
+    case 'build':return [bl(o.b),o.l];
+    case 'lvl':return [g.lvl,o.n];
+  }
+  return [0,1];
+}
+function qDesc(q){
+  const o=q.o;
+  switch(o.k){
+    case 'kill':return BOSSES[o.m]?'Defeat '+BOSSES[o.m].n+'.':'Defeat '+o.n+' '+MOBS[o.m].n+'.';
+    case 'have':return 'Bring '+o.n+' '+nm(o.i)+'.';
+    case 'explore':return 'Explore '+ZONES[o.z].n+' '+o.n+' times.';
+    case 'stat':return {kills:'Defeat '+o.n+' enemies in this life.',elites:'Defeat '+o.n+' elites.',delves:'Complete '+o.n+' delves.'}[o.s]||'Do something remarkable.';
+    case 'pages':return 'Collect '+o.n+' Lamplighter pages.';
+    case 'gear':return 'Equip a tier-'+o.t+' weapon.';
+    case 'build':return 'Raise the '+BLD[o.b].n+' to level '+o.l+'.';
+    case 'lvl':return 'Reach level '+o.n+'.';
+  }
+  return '';
+}
+const qReady=q=>{const s=g.q[q.id];if(!s||s.s!=='active')return false;const p=qProg(q);return p[0]>=p[1];};
+const anyQReady=()=>QUESTS.some(qReady);
+const anyQNew=()=>QUESTS.some(q=>qOpen(q)&&q.t==='main');
+function acceptQ(q){
+  g.q[q.id]={s:'active'};
+  if(q.on)say(q.on,'npc');
+  say('Quest accepted: '+q.title+'.','sys');
+  if(q.comp)recruit(q.comp);
+  if(q.sa)scene(q.sa);
+  checkQuests();
+}
+function claimQ(q){
+  if(!qReady(q))return;
+  if(q.o.k==='have')take(q.o.i,q.o.n);
+  g.q[q.id]={s:'done'};
+  const m=1+.35*g.re,rw=q.rw;
+  say('Quest complete: '+q.title+'.','win');
+  if(rw.em){const v=gainEm(rw.em*m);say('+'+v+' scrip.','loot');}
+  for(const i in (rw.items||{})){give(i,rw.items[i]);say('Received '+nm(i)+(rw.items[i]>1?' x'+rw.items[i]:'')+'.','loot');}
+  if(rw.echo){g.ech+=rw.echo;say('+'+rw.echo+' Echoes.','lvl');}
+  if(rw.xp)gainXp(rw.xp*m*.6);
+  if(q.sd)scene(q.sd);
+  checkQuests();checkAch();
+}
+
+/* ---------- shop ---------- */
+const SHOPI=[['bread',1],['apple',1],['pork',1],['potion',1],['antidote',1],['pearl',1],['tnt',1],['strength',1],['ward',2],['stunb',2],['potion2',2],['ration',2],['totem',3],['feast',3],['potion3',4],['strength2',4]];
+function stock(){
+  if(g.shop&&g.shop.day===g.day)return;
+  const n=3+(bl('market')>=1?1:0),list=[];
+  const tl=tierFor(g.lvl+3);
+  for(let i=0;i<n;i++){
+    const r=rollRar([50,33,14,3]);
+    list.push({it:mkGear(pick(SLOTS),clamp(tl-(rnd()<.3?1:0),1,10),r),sold:0});
+  }
+  if(bl('market')>=5)list.push({it:mkGear(pick(SLOTS),tl,3),sold:0});
+  g.shop={day:g.day,list:list};
+}
+const gearPrice=i=>Math.max(5,Math.round(GEAR[i.b].v*RVAL[i.r]*(i.r>=3?1.5:1.1)*(1-calc().buy/100)));
+function buyGear(o){const p=gearPrice(o.it);if(o.sold||g.em<p)return;if(g.gear.length>=90){say('Your pack is full.','sys');return;}g.em-=p;o.sold=1;g.gear.push(o.it);say('Bought '+gname(o.it)+' for '+fmt(p)+' scrip.','sys');}
+function buy(id){const p=price(id);if(g.em<p)return;g.em-=p;give(id);say('Bought '+nm(id)+' for '+p+' scrip.','sys');}
+function sellItem(id,all){const n=all?have(id):Math.min(1,have(id));if(n<=0)return;const p=sellVal(id,n);take(id,n);g.em+=p;say('Sold '+nm(id)+(n>1?' x'+n:'')+' for '+fmt(p)+' scrip.','sys');}
+function sellG(i){if(i.lk||g.eq[slotOf(i)]===i.u)return;const v=gval(i);g.em+=v;g.gear.splice(g.gear.indexOf(i),1);say('Sold '+gname(i)+' for '+fmt(v)+' scrip.','sys');}
+function dismantle(i){
+  if(i.lk||g.eq[slotOf(i)]===i.u)return;
+  const t=tierOf(i),n=Math.round((t*1.5+1)*(1+i.r*.8));
+  give('scrap',n);const T=TIERS[t-1];let extra='';
+  if(rnd()<.3){const m=pick(T.c)[0];give(m);extra=' and '+nm(m);}
+  g.gear.splice(g.gear.indexOf(i),1);
+  say('Dismantled '+gname(i)+': Salvage x'+n+extra+'.','sys');
+}
+function junkSell(maxr){
+  let v=0,c=0;
+  for(const i of g.gear.slice()){if(i.lk||i.rl||g.eq[slotOf(i)]===i.u||i.r>maxr)continue;v+=gval(i);c++;g.gear.splice(g.gear.indexOf(i),1);}
+  g.em+=v;say(c?'Sold '+c+' items for '+fmt(v)+' scrip.':'Nothing to sell.','sys');
+}
+
+/* ---------- forge ---------- */
+const forgeCap=()=>[0,3,5,7,9,10][bl('forge')];
+const enhCost=i=>{const t=tierOf(i);return{em:Math.round(BV[t-1]*.3*Math.pow(i.e+1,1.5)),scrap:(i.e+1)*Math.ceil(t/2)+1};};
+const enhChance=e=>[1,1,1,.85,.75,.65,.55,.45,.38,.3][e]||0;
+function enhance(i){
+  const c=enhCost(i);
+  if(i.e>=forgeCap()||g.em<c.em||have('scrap')<c.scrap)return;
+  g.em-=c.em;take('scrap',c.scrap);
+  if(rnd()<enhChance(i.e)){i.e++;say(gname(i)+' takes the heat. (+'+i.e+')','win');}
+  else say('The metal cracks and cools. Nothing gained.','hit');
+  g.stats.crafts++;checkAch();
+}
+const reCost=i=>({em:Math.round(BV[tierOf(i)-1]*.25*(i.r+1)),scrap:2*tierOf(i)});
+function reforge(i){
+  const c=reCost(i);
+  if(i.rl||bl('forge')<2||g.em<c.em||have('scrap')<c.scrap)return;
+  g.em-=c.em;take('scrap',c.scrap);rollAff(i);say('You reforge '+gname(i)+'.','win');
+}
+const awCost=i=>({rc:i.r+1,em:Math.round(BV[tierOf(i)-1]*.6*(i.r+1))});
+function awaken(i){
+  const c=awCost(i);
+  if(i.rl||i.r>=3||bl('forge')<3||g.em<c.em||have('rift_core')<c.rc)return;
+  g.em-=c.em;take('rift_core',c.rc);i.r++;rollAff(i);say(gname(i)+' flares and wakes: '+RAR[i.r]+'.','lvl');checkAch();
+}
+const CRAFTW=[null,[85,15,0,0],[70,25,5,0],[55,32,11,2],[40,36,19,5],[28,38,26,8]];
+const canCraft=r=>r.in.every(([i,n])=>have(i)>=n)&&(!r.fl||bl('forge')>=r.fl)&&(!r.kl||bl('kitchen')>=r.kl);
+
+const craftFee=r=>r.g?Math.round(BV[+r.g.slice(1)-1]*.5):0;
+function craft(r){
+  if(!canCraft(r)||g.em<craftFee(r))return;
+  g.em-=craftFee(r);
+  r.in.forEach(([i,n])=>take(i,n));
+  g.stats.crafts++;
+  if(r.g){
+    const slot=r.g[0],tier=+r.g.slice(1);
+    const it=mkGear(slot,tier,rollRar(CRAFTW[Math.max(1,bl('forge'))]));
+    const k=addGear(it,true);say('Forged '+gname(it)+'.','loot');
+  }else{give(r.out);say('Made '+nm(r.out)+'.','loot');}
+  checkAch();
+}
+
+/* ---------- buildings, upgrades, echo, skills ---------- */
+const bCost=(b,l)=>{const c=BLD[b].c[l],m=1-.08*X('foreman');return{e:Math.round(c.e*m),i:c.i};};
+const canBuild=b=>{const l=bl(b);if(l>=BLD[b].max)return false;const c=bCost(b,l);return g.em>=c.e&&Object.entries(c.i).every(([i,n])=>have(i)>=n);};
+function build(b){
+  if(!canBuild(b))return;
+  const l=bl(b),c=bCost(b,l);g.em-=c.e;for(const i in c.i)take(i,c.i[i]);
+  g.bld[b]=l+1;say('The '+BLD[b].n+' is now level '+(l+1)+'. '+BLD[b].d[l],'lvl');checkQuests();checkAch();
+}
+const upCost=(u,l)=>Math.round(u.base*Math.pow(1.55,l));
+function buyUp(u){const l=U(u.id),c=upCost(u,l);if(l>=u.max||g.em<c)return;g.em-=c;g.up[u.id]=l+1;say(u.n+' upgraded to '+(l+1)+'.','sys');if(u.id==='vit')heal(maxHp()*.04);}
+const echoCost=(u,l)=>u.base*(l+1);
+function buyEcho(u){const l=X(u.id),c=echoCost(u,l);if(l>=u.max||g.ech<c)return;g.ech-=c;g.eu[u.id]=l+1;say(u.n+' raised to '+(l+1)+'.','sys');}
+function rankUp(s){
+  const p=sp();if(p.used>=p.tot||(g.sk[s.id]||0)>=s.max||!skillAvail(s))return;
+  g.sk[s.id]=(g.sk[s.id]||0)+1;say(s.n+' rank '+g.sk[s.id]+'.','sys');
+}
+const respecCost=()=>Math.round(g.lvl*g.lvl*1.5*[1,.85,.5,.5,.1,0][bl('library')]);
+function respec(){const c=respecCost();if(g.em<c||!Object.keys(g.sk).length)return;g.em-=c;g.sk={};say('Your training unravels. All skill points are free again.','sys');}
+
+/* ---------- achievements ---------- */
+function checkAch(){
+  for(const a of ACH){
+    if(g.ach[a.id])continue;
+    let ok=false;try{ok=!!a.t();}catch(e){}
+    if(!ok)continue;
+    g.ach[a.id]=1;
+    let m='Achievement: '+a.n+'.';
+    if(a.em){g.em+=a.em;m+=' +'+fmt(a.em)+' scrip.';}
+    if(a.ec){g.ech+=a.ec;m+=' +'+a.ec+' Echoes.';}
+    if(a.ti){g.titles[a.ti]=1;m+=' Title: '+a.ti+'.';}
+    say(m,'lvl');
+  }
+}
+
+/* ---------- rebirth ---------- */
+const doneQ=()=>Object.values(g.q).filter(s=>s.s==='done').length;
+const echoGain=()=>Math.round((g.lvl*2.2+Object.keys(g.bd).length*12+Math.floor(g.ls.kills/7)+doneQ()*1.5)*(g.bd.quiet?1:.5));
+const canRebirth=()=>!!g.bd.hollow_king;
+function kit(){
+  const k=X('kit');
+  const eq=(slot,tier,r)=>{const it=mkGear(slot,tier,r||0);g.gear.push(it);g.eq[slot]=it.u;};
+  if(k>=1){eq('w',2,1);give('bread',3);}
+  if(k>=2){eq('w',3,1);eq('a',1,1);give('potion',2);}
+  if(k>=3){eq('a',3,1);eq('h',2,1);give('potion',3);give('totem');}
+}
+function rebirth(){
+  const gain=echoGain(),old=g,n=fresh();
+  n.re=old.re+1;n.ech=old.ech+gain;
+  ['eu','lore','bdAll','ends','ach','titles','title','pg','dvBest','kills','as','stats','trB'].forEach(k=>{n[k]=old[k];});
+  n.comp.bond=old.comp.bond;
+  g=n;ev=null;UI.auto=false;UI.hunt=false;
+  const w=mkGear('w',1,0);g.gear.push(w);g.eq.w=w.u;
+  kit();g.hp=maxHp();
+  log.replaceChildren();
+  say('The Hollow Crown turns to ash in your hands. The world folds up like a letter and unfolds again, a little meaner. You wake at Ember Camp with a bowl in your hands and Mara watching you.');
+  say('Rebirth '+g.re+'. +'+gain+' Echoes. Enemies are stronger now, and they pay better.','lvl');
+  lore('rebirth');
+  scene('s_intro');
+}
+function newGame(){
+  g=fresh();ev=null;UI.cf=null;
+  const w=mkGear('w',1,0);g.gear.push(w);g.eq.w=w.u;
+  g.hp=maxHp();
+  log.replaceChildren();
+  say('The sky split on a Tuesday. By Friday the sun was a smear behind the ash.');
+  say('You wake at Ember Camp, the last lit fire for a hundred miles. A scrap club, two rounds of hardtack, and a long way to go.');
+  say('Tap Travel to head out, then Explore. Eat when Food runs low. Mara\'s board has work. Once you know the ropes, Hunt keeps exploring for you and Auto plays your fights. Pack, Skills and Camp are where you grow.','sys');
+  scene('s_intro');
+}
+function talkTo(n){
+  if(g.talked[n]===g.day){say(NPCN[n]+' has nothing new to say today.','sys');return;}
+  g.talked[n]=g.day;
+  const a=Math.min(6,act());
+  const lines=(TALK[n]||{})[a]||(TALK[n]||{})[1]||[];
+  if(lines.length)say(pick(lines),'npc');
+  if(COMP[n]&&g.comp.have[n])bondGain(n,2);
+}
+
+/* ---------- trials: repeatable boss rematches that scale without end ---------- */
+const trTier=id=>(g.trB[id]||0)+1;
+function startTrial(id){
+  const t=trTier(id),b=BOSSES[id];
+  g.loc='camp';
+  say('You step into the Echo of '+b.n+'. Trial tier '+t+'.','hit');
+  const f=mkFoe(id,Math.max(b.p,Math.round(g.lvl*.85))+Math.floor(t*1.5),{mult:1+.4*t,trial:t});
+  startFight(f);
+}
+function trialWin(f){
+  const t=f.trial,B=BOSSES[f.id];
+  g.view='main';
+  const S=calc();
+  const em=gainEm(emOf(f.L)*B.em*10*(1+.25*t)*(1+S.em/100)),xp=gainXp(xpOf(f.L)*B.xp*3);
+  say('The Echo of '+B.n+' fades. (+'+fmt(xp)+' XP, +'+fmt(em)+' scrip)','win');
+  const rc=1+Math.floor(t/2);give('rift_core',rc);
+  const ng=1+Math.floor(t/3);
+  for(let i=0;i<ng;i++){const it=dropGear(f.L,'b',2);const k=addGear(it);if(k)say('Trial reward: '+gname(k)+'.','loot');}
+  say('Rift Core x'+rc+'.','loot');
+  if(t>(g.trB[f.id]||0)){g.trB[f.id]=t;const e=Math.max(1,Math.round(t*(B.p/20)));g.ech+=e;say('First time at tier '+t+': +'+e+' Echoes.','lvl');}
+  g.stats.trials++;
+  checkQuests();checkAch();
+}
+
+/* ================= UI ================= */
+function B(label,fn_,cls,disabled){
+  const b=el('button','btn '+(cls||''),label);b.type='button';
+  if(disabled||!fn_)b.disabled=true;
+  else b.addEventListener('click',()=>{UI.cf=null;fn_();render();});
+  return b;
+}
+function Bc(label,fn_,cls,disabled){ // button that does not clear confirm state
+  const b=el('button','btn '+(cls||''),label);b.type='button';
+  if(disabled||!fn_)b.disabled=true;else b.addEventListener('click',()=>{fn_();render();});
+  return b;
+}
+function row(title,sub_,btns,tcls){
+  const r=el('div','row'),t=el('div','rt'),s=el('small');
+  t.append(el('b',tcls||null,title));
+  if(sub_ instanceof Node)s.append(sub_);else s.textContent=sub_||'';
+  t.append(s);const a=el('div','ra');a.append(...(btns||[]));r.append(t,a);return r;
+}
+function head(t,back){const h=el('div','dh');h.append(el('h2',null,t),B('Back',()=>{g.view=back||'main';UI.tab={};},'sm'));return h;}
+function grid(btns,one){const d=el('div','grid'+(one?' one':''));d.append(...btns);return d;}
+function sec(t){return el('p','sec',t);}
+function hint(t,cls){return el('p','hint'+(cls?' '+cls:''),t);}
+function tabs(key,list){
+  const cur=UI.tab[key]||list[0][0],d=el('div','tabs');
+  list.forEach(([id,label])=>{
+    const b=el('button','btn sm'+(cur===id?' on':''),label);b.type='button';b.setAttribute('aria-pressed',cur===id?'true':'false');
+    b.addEventListener('click',()=>{UI.tab[key]=id;UI.cf=null;render();});d.append(b);
+  });
+  return [d,cur];
+}
+function costFrag(items,em){
+  const f=document.createDocumentFragment();let first=true;
+  const add=(txt,ok)=>{if(!first)f.append(' · ');first=false;f.append(el('span',ok?'ok':'no',txt));};
+  if(em)add(fmt(em)+' scrip',g.em>=em);
+  items.forEach(([id,n])=>add(nm(id)+' '+Math.min(have(id),9999)+'/'+n,have(id)>=n));
+  return f;
+}
+function itemSub(id){
+  const i=ITEMS[id];
+  if(i.t==='heal')return '+'+i.hpp+'% HP'+(i.cure?', cures ailments':'');
+  if(i.t==='food')return '+'+i.food+' food'+(i.hpp?', +'+i.hpp+'% HP':'');
+  if(i.t==='buff')return i.b==='rage'?'ATK x'+i.m+' for '+i.turns+' turns (fight)':'DEF x'+i.m+' for '+i.turns+' turns (fight)';
+  if(i.t==='tool')return {pearl:'Escape a fight (not bosses)',tnt:'Heavy damage that ignores armor',stunb:'Stuns the enemy for 2 turns'}[id];
+  if(i.t==='totem')return 'Cheats death once, automatically';
+  return 'Worth '+i.v;
+}
+const IORD={heal:0,food:1,buff:2,tool:3,totem:4,mat:5};
+const invIds=()=>Object.keys(g.inv).filter(id=>ITEMS[id]).sort((a,b)=>IORD[ITEMS[a].t]-IORD[ITEMS[b].t]||nm(a).localeCompare(nm(b)));
+function cmpFrag(i){
+  const e=eqi(slotOf(i)),a=gstat(i),b=e&&e.u!==i.u?gstat(e):{atk:0,def:0,hp:0};
+  const f=document.createDocumentFragment();
+  [['atk','ATK'],['def','DEF'],['hp','HP']].forEach(([k,l])=>{const d=(a[k]||0)-(b[k]||0);if(d){f.append(el('span',d>0?'ok':'no',l+' '+(d>0?'+':'')+d),' ');}});
+  return f;
+}
+
+/* ---------- status ---------- */
+function setBar(k,v,max,text){$('#'+k+'T').textContent=text;$('#'+k+'F').style.width=clamp(v/max*100,0,100)+'%';}
+function renderStatus(){
+  const S=calc();
+  $('#loc').textContent=g.delve?'Delve '+g.delve.floor+' · '+ZONES[g.delve.z].n:ZONES[g.loc].n;
+  $('#day').textContent='Day '+g.day+' · '+PHASES[phase()]+' · '+WX[g.wx][0];
+  setBar('hp',g.hp,S.hp,'HP '+Math.max(0,g.hp)+'/'+S.hp);
+  setBar('food',g.food,100,'Food '+g.food);
+  setBar('xp',g.xp,need(g.lvl),g.lvl>=99?'MAX':'XP '+fk(g.xp)+'/'+fk(need(g.lvl)));
+  $('#lv').textContent='Lv '+g.lvl;$('#atk').textContent='ATK '+S.atk;$('#def').textContent='DEF '+S.def;
+  $('#em').textContent=fmt(g.em)+' scrip';
+  const bf=[];if(g.bless)bf.push(BSD[g.bless.id].n.replace(' Blessing','')+' '+g.bless.left);
+  for(const n in g.buff)bf.push(n[0].toUpperCase()+n.slice(1)+' '+g.buff[n].t);
+  $('#bf').textContent=bf.join(' · ');
+  $('#ec').textContent=(g.re||g.ech)?'Rebirth '+g.re+' · '+g.ech+' Echoes':'';
+  $('#ti').textContent=g.title||'';
+}
+
+/* ---------- deck views ---------- */
+const bossReady=Z=>Z.boss&&!g.bd[Z.boss.id]&&(g.prog[g.loc]||0)>=Z.boss.need;
+function foePanel(f){
+  const c=el('div','foe'),bar=el('div','bar'),i=el('i');
+  i.style.width=clamp(f.hp/f.max*100,0,100)+'%';bar.append(i);
+  c.append(el('b',null,(f.el?'Elite ':'')+f.n+'  ·  Lv '+f.L),bar);
+  const tags=trList(f);
+  if(f.mark>0)tags.push('Marked');if(f.bleed.length)tags.push('Bleeding');if(f.stun>0)tags.push('Stunned');
+  if(f.ph)tags.push('Phase '+(f.ph+1));
+  c.append(el('small',null,'HP '+fmt(Math.max(0,f.hp))+'/'+fmt(f.max)+(tags.length?'  ·  '+tags.join(', '):'')));
+  const me=['You '+Math.max(0,g.hp)+'/'+maxHp(),'Focus '+Math.round(f.p.fc)+'/100'];
+  if(g.st.poison)me.push('Poisoned');if(g.st.burn)me.push('Burning');if(g.st.stun)me.push('Stunned');if(f.p.sil>0)me.push('Silenced');
+  g.comp.act.forEach(x=>me.push(COMP[x].n));
+  c.append(el('small',null,me.join('  ·  ')));
+  const w=warnNext(f);if(w)c.append(el('small','warn','! '+w));
+  return c;
+}
+function viewFight(k){
+  const f=g.fight;k.push(foePanel(f));
+  if(g.view==='fpack'){
+    k.push(head('Use an item','fight'));
+    const ids=invIds().filter(isUsable);
+    if(!ids.length)k.push(hint('Nothing to use.'));
+    ids.forEach(id=>k.push(row(nm(id)+' x'+have(id),itemSub(id),[B('Use',()=>{g.view='fight';useItem(id);},'sm')])));
+    return;
+  }
+  const b=[B('Attack',aAttack,'primary'),B('Guard',aGuard)];
+  SKILLS.filter(s=>s.act&&g.sk[s.id]).forEach(s=>{
+    b.push(B(s.n+' ('+s.c+')',()=>skillUse(s.id),'',f.p.fc<s.c||f.p.sil>0));
+  });
+  b.push(B('Items',()=>{g.view='fpack';}));
+  b.push(B('Flee',flee,'danger'));
+  b.push(Bc(UI.auto?'Auto: ON':'Auto',()=>{UI.auto=!UI.auto;}, UI.auto?'on':''));
+  k.push(grid(b));
+}
+function viewMain(k){
+  if(g.loc==='camp'){
+    const q=anyQReady()?' !':(anyQNew()?' *':'');
+    const b=[B('Rest',rest,'primary'),B('Travel',()=>{g.view='travel';}),B('Quests'+q,()=>{g.view='board';}),B('Bounties',()=>{bounty();g.view='bounty';}),
+      B('Pack',()=>{g.view='pack';}),B('Skills',()=>{g.view='skills';}),B('Party',()=>{g.view='party';}),B('Camp',()=>{g.view='camp';}),
+      B('Journal',()=>{g.view='journal';}),B('Records',()=>{g.view='rec';})];
+    if(Object.keys(g.bdAll).length)b.push(B('Echo Trials',()=>{g.view='trial';}));
+    if(g.re||g.ech)b.push(B('Echo Shrine',()=>{g.view='echo';}));
+    if(canRebirth())b.push(B('Rebirth',()=>{g.view='rebirth';},'danger'));
+    b.push(B('Settings',()=>{g.view='set';}));
+    k.push(grid(b));
+    const hp=[];
+    if(g.bd.quiet)hp.push('The Quiet is silent. The world is yours to wander.');
+    k.push(hint('Ember Camp. The kettle never quite boils.'+(hp.length?' '+hp[0]:'')));
+  }else{
+    const Z=ZONES[g.loc],ready=bossReady(Z);
+    const b=[B('Explore',explore,'primary'),B('Scavenge',gather),
+      Bc(UI.hunt?'Hunt: ON':'Hunt',()=>{UI.hunt=!UI.hunt;},UI.hunt?'on':''),
+      B('Delve',()=>startDelve(g.loc),'',(g.prog[g.loc]||0)<3),
+      B('Pack',()=>{g.view='pack';}),B('Skills',()=>{g.view='skills';}),B('Party',()=>{g.view='party';}),B('Return to camp',toCamp)];
+    if(ready)b.unshift(B(Z.boss.label,()=>{const bo=BOSSES[Z.boss.id];startFight(mkFoe(Z.boss.id,bo.p));},'danger'));
+    k.push(grid(b));
+    let t=Z.desc+'  Lv '+Z.lo+'-'+Z.hi+'. Explored '+(g.prog[g.loc]||0)+' times.';
+    if(Z.boss&&!g.bd[Z.boss.id]&&!ready)t+='  Something waits here ('+(g.prog[g.loc]||0)+'/'+Z.boss.need+').';
+    if(Z.boss&&ready)t+='  The way is clear. Whatever waits here is waiting for you.';
+    if((g.prog[g.loc]||0)<3)t+='  Explore 3 times to unlock delves.';
+    if(bl('tower')>=5&&g.nx!=null)t+='  Ahead: '+(g.nx<.5?'a fight':g.nx<.74?'a find':'an event')+'.';
+    k.push(hint(t));
+  }
+}
+function viewTravel(k){
+  k.push(head('Travel'));k.push(hint('Each trip costs a little food. Zones open when you defeat the guardian of the last.'));
+  if(g.loc!=='camp')k.push(row('Ember Camp','Safe. Rest, shop, forge, quests.',[B('Go',toCamp,'sm primary')]));
+  ZORD.forEach(z=>{
+    const Z=ZONES[z],open=unlocked(z),cur=g.loc===z;
+    const sub_=open?'Lv '+Z.lo+'-'+Z.hi+'  ·  '+Z.desc:'Locked. Defeat '+BOSSES[Z.req].n+'.';
+    const diff=open&&g.lvl<Z.lo-2?'  ·  Dangerous for you':open&&g.lvl>Z.hi+6?'  ·  Easy for you':'';
+    k.push(row(Z.n+(g.bd[Z.boss&&Z.boss.id]?'  (cleared)':''),sub_+diff,[B(cur?'Here':open?'Go':'Locked',()=>travel(z),'sm primary',!open||cur)]));
+  });
+}
+function viewBoard(k){
+  k.push(head('Mara\'s board'));
+  const [t,cur]=tabs('qb',[['main','Story'],['comp','Companions'],['side','Side'],['done','Done']]);k.push(t);
+  const list=QUESTS.filter(q=>cur==='done'?qDone(q.id):(q.t===cur&&!qDone(q.id)&&(qOpen(q)||g.q[q.id])));
+  if(!list.length)k.push(hint(cur==='done'?'Nothing finished yet.':'Nothing here right now.'));
+  list.forEach(q=>{
+    if(cur==='done'){k.push(row(q.title,NPCN[q.who],[]));return;}
+    const s=g.q[q.id],p=qProg(q);let btn;
+    if(!s)btn=B('Accept',()=>acceptQ(q),'sm primary');
+    else if(g.loc!=='camp')btn=B('At camp',null,'sm',true);
+    else btn=B('Claim',()=>claimQ(q),'sm primary',p[0]<p[1]);
+    const rw=q.rw,rt=[];
+    if(rw.em)rt.push(fmt(rw.em*(1+.35*g.re))+' scrip');if(rw.xp)rt.push(fmt(rw.xp*(1+.35*g.re)*.6)+' XP');
+    for(const i in (rw.items||{}))rt.push(nm(i)+(rw.items[i]>1?' x'+rw.items[i]:''));
+    if(rw.echo)rt.push(rw.echo+' Echoes');
+    const prog=s?'  ·  '+Math.min(p[0],p[1])+'/'+p[1]:'';
+    k.push(row(q.title+'  ('+NPCN[q.who]+')',qDesc(q)+prog+'  ·  Reward: '+rt.join(', '),[btn]));
+  });
+}
+function viewBounty(k){
+  k.push(head('Bounty board'));k.push(hint('Fresh bounties every day. Kills count from the moment you accept.'));
+  g.bt.list.forEach(b=>{
+    const p=b.s===1?bProg(b):0,M=MOBS[b.m],Z=ZONES[b.z];let btn;
+    if(b.s===0)btn=B('Accept',()=>{b.s=1;b.k0=g.lk[b.m]||0;say('Bounty accepted: '+b.n+' '+M.n+'.','sys');},'sm primary');
+    else if(b.s===1)btn=B('Claim',()=>{b.s=2;g.stats.bounties++;const e=gainEm(b.em),x=gainXp(b.xp);say('Bounty paid: +'+fmt(e)+' scrip, +'+fmt(x)+' XP.','win');if(rnd()<.3){const k_=addGear(dropGear(Z.hi,'e',2));if(k_)say('Bonus: '+gname(k_)+'.','loot');}checkQuests();checkAch();},'sm primary',p<b.n);
+    else btn=B('Done',null,'sm',true);
+    k.push(row('Hunt '+b.n+' '+M.n,Z.n+'  ·  Reward: '+fmt(b.em)+' scrip, '+fmt(b.xp)+' XP'+(b.s===1?'  ·  '+Math.min(p,b.n)+'/'+b.n:''),[btn]));
+  });
+}
+function viewScene(k){
+  const s=SC[g.scene.id],list=s.c.filter(c=>condOK(c.if));
+  k.push(grid(list.map((c,i)=>B(c.t,()=>sceneChoice(i),i===0?'primary':'')),true));
+}
+function viewDelve(k){
+  const d=g.delve;
+  k.push(hint('Floor '+d.floor+' cleared. Deeper floors pay more and hit harder. Leaving cashes in the chest; dying forfeits it.'));
+  const n=1+Math.floor(d.floor/3);
+  k.push(grid([B('Descend',nextFloor,'primary'),B('Rest on the landing',delveRest,'',d.floor-d.rested<3),B('Leave (chest: '+n+' gear)',delveLeave)],true));
+}
+
+/* ---------- pack ---------- */
+function gearRow(i,eqd){
+  const btns=[],s=slotOf(i);
+  if(!eqd){
+    btns.push(B('Equip',()=>{equipG(i);say('Equipped '+gname(i)+'.','sys');},'sm'));
+    btns.push(B(i.lk?'Unlock':'Lock',()=>{i.lk=i.lk?0:1;},'sm'));
+    if(!i.lk){
+      const risky=i.r>=2||i.e>0;
+      btns.push(UI.cf===i.u+'s'?Bc('Sure?',()=>{sellG(i);UI.cf=null;},'sm danger'):Bc('Sell '+fmt(gval(i)),()=>{if(risky)UI.cf=i.u+'s';else sellG(i);},'sm'));
+      btns.push(B('Break',()=>dismantle(i),'sm'));
+    }
+  }
+  const sub_=document.createDocumentFragment();
+  sub_.append(SLOTN[s]+' · T'+tierOf(i)+' · '+RAR[i.r]+'  ·  ');
+  if(!eqd)sub_.append(cmpFrag(i));
+  sub_.append(document.createElement('br'),gtxtBase(i));
+  return row((i.lk?'* ':'')+gname(i),sub_,btns,'r'+i.r);
+}
+function viewPack(k){
+  k.push(head('Pack'));
+  const [t,cur]=tabs('pk',[['gear','Gear'],['items','Items'],['stats','Stats']]);k.push(t);
+  if(cur==='gear'){
+    k.push(sec('Equipped'));
+    SLOTS.forEach(s=>{const i=eqi(s);k.push(i?gearRow(i,true):row(SLOTN[s],'Nothing equipped.',[]));});
+    const [t2,cs]=tabs('gf',[['all','All'],...SLOTS.map(s=>[s,SLOTN[s]])]);k.push(sec('Carried ('+g.gear.filter(x=>g.eq[slotOf(x)]!==x.u).length+'/90)'));k.push(t2);
+    const list=g.gear.filter(x=>g.eq[slotOf(x)]!==x.u&&(cs==='all'||slotOf(x)===cs)).sort((a,b)=>b.r-a.r||tierOf(b)-tierOf(a)||b.e-a.e);
+    if(!list.length)k.push(hint('Nothing here.'));
+    list.slice(0,40).forEach(i=>k.push(gearRow(i,false)));
+    if(list.length>40)k.push(hint('...and '+(list.length-40)+' more. Sell or break some to see them.'));
+    k.push(sec('Quick sell'));
+    k.push(grid([B('Sell all Common',()=>junkSell(0),'sm'),B('Sell Common + Fine',()=>junkSell(1),'sm')]));
+  }else if(cur==='items'){
+    const ids=invIds();if(!ids.length)k.push(hint('Empty.'));
+    let last=null;
+    ids.forEach(id=>{
+      const it=ITEMS[id],grp=it.t==='mat'?'Materials':'Supplies';
+      if(grp!==last){k.push(sec(grp));last=grp;}
+      const btns=[];if(isUsable(id)&&it.t!=='tool'&&it.t!=='buff')btns.push(B('Use',()=>useItem(id),'sm'));
+      k.push(row(nm(id)+' x'+have(id),itemSub(id),btns));
+    });
+  }else{
+    const S=calc(),p=sp();
+    const rows=[['Level',g.lvl],['Attack',S.atk],['Defense',S.def],['Max HP',S.hp],['Crit chance',Math.round(S.crit*10)/10+'%'],['Crit damage','+'+S.critd+'%'],
+      ['Dodge',Math.round(S.dodge*10)/10+'%'],['Lifesteal',Math.round(S.ls*10)/10+'%'],['Thorns',Math.round(S.thorn*10)/10+'%'],['Focus per hit',S.fgain],
+      ['XP bonus',Math.round(S.xp)+'%'],['Scrip bonus',Math.round(S.em)+'%'],['Loot bonus',Math.round(S.loot)+'%'],['Regen per turn',Math.round(S.regen*10)/10+'%'],
+      ['Tonic potency','+'+Math.round(S.heal)+'%'],['Hunger saved',Math.round(S.food)+'%'],['Sell bonus',Math.round(S.sell)+'%'],['Shop discount',Math.round(S.buy)+'%'],
+      ['Skill points free',p.tot-p.used],['Party slots',slots()]];
+    rows.forEach(([a,b])=>k.push(row(a,String(b),[])));
+  }
+}
+
+/* ---------- camp sub-menu & services ---------- */
+function viewCamp(k){
+  k.push(head('Camp'));
+  k.push(grid([B('Forge',()=>{g.view='forge';}),B('Kitchen & Tinker',()=>{g.view='cook';}),B('Trader',()=>{stock();g.view='shop';}),B('Build',()=>{g.view='build';}),
+    B('Upgrades',()=>{g.view='upg';}),B('Talk',()=>{g.view='talk';})]));
+  k.push(hint('Buildings unlock stronger recipes and bonuses. Bran will let you use the forge once you have proved yourself.'));
+}
+function viewTalk(k){
+  k.push(head('Talk','camp'));
+  const who=['mara','bran',...Object.keys(COMP).filter(c=>g.comp.have[c])];
+  k.push(hint('Talking to companions once a day deepens your bond.'));
+  who.forEach(n=>k.push(row(NPCN[n],g.talked[n]===g.day?'Already spoken today.':(COMP[n]?COMP[n].role+', bond rank '+bondRank(n):(n==='mara'?'Camp quartermaster.':'Smith.')),[B('Talk',()=>talkTo(n),'sm',false)])));
+}
+function viewParty(k){
+  k.push(head('Party'));k.push(hint('Party slots: '+g.comp.act.length+'/'+slots()+'. More slots at levels 20 and 40.'));
+  Object.keys(COMP).forEach(c=>{
+    const C=COMP[c];
+    if(!g.comp.have[c]){k.push(row('???','Not yet met.',[]));return;}
+    const r=bondRank(c),b=Math.floor(g.comp.bond[c]||0),nx=BOND[r]!=null?BOND[r]:null;
+    k.push(row(C.n+' · '+C.role+' · Bond '+r,C.d+'  ('+b+(nx!=null?'/'+nx:' max')+')',[B(compOn(c)?'Dismiss':'Bring',()=>togglePartner(c),'sm')]));
+  });
+}
+function viewForge(k){
+  k.push(head('Forge','camp'));
+  const fl=bl('forge');
+  if(!fl){k.push(hint('The forge is cold. Prove yourself to Bran (the Forge Work quest), or build it under Camp > Build.'));return;}
+  k.push(hint('Forge level '+fl+'. Enhance cap +'+forgeCap()+'. You have '+fmt(have('scrap'))+' Salvage and '+have('rift_core')+' Rift Cores. Break gear to get Salvage.'));
+  const [t,cur]=tabs('fg',[['craft','Craft'],['enh','Enhance'],['re','Reforge'],['aw','Awaken']]);k.push(t);
+  if(cur==='craft'){
+    const list=RECIPES.filter(r=>r.k==='Forge');
+    const vis=list.filter(r=>r.fl<=fl+1).sort((a,b)=>canCraft(b)-canCraft(a)||b.fl-a.fl);
+    if(!vis.length)k.push(hint('Nothing to craft yet.'));
+    vis.slice(0,30).forEach(r=>{
+      const base=GEAR[r.g];
+      const sub_=document.createDocumentFragment();
+      sub_.append(gtxtBase({b:r.g,r:0,e:0,af:[]})+(r.fl>fl?'  (needs forge '+r.fl+')':'')+'  ·  ',costFrag(r.in,craftFee(r)));
+      k.push(row(base.n+' (T'+base.tier+')',sub_,[B('Forge',()=>craft(r),'sm',!canCraft(r)||g.em<craftFee(r))]));
+    });
+  }else{
+    const list=g.gear.slice().sort((a,b)=>(g.eq[slotOf(b)]===b.u)-(g.eq[slotOf(a)]===a.u)||tierOf(b)-tierOf(a)||b.r-a.r).slice(0,30);
+    list.forEach(i=>{
+      let btn,sub_=document.createDocumentFragment();
+      if(cur==='enh'){
+        const c=enhCost(i);
+        sub_.append('Chance '+Math.round(enhChance(i.e)*100)+'%  ·  ',costFrag([['scrap',c.scrap]],c.em));
+        btn=B(i.e>=forgeCap()?'Cap':'Enhance',()=>enhance(i),'sm',i.e>=forgeCap()||g.em<c.em||have('scrap')<c.scrap);
+      }else if(cur==='re'){
+        const c=reCost(i);sub_.append(gtxtBase(i)+'  ·  ',costFrag([['scrap',c.scrap]],c.em));
+        btn=B(i.rl?'Relic':bl('forge')<2?'Forge 2':'Reforge',()=>reforge(i),'sm',i.rl||bl('forge')<2||g.em<c.em||have('scrap')<c.scrap||!i.af.length&&i.r===0);
+      }else{
+        const c=awCost(i);sub_.append('Becomes '+RAR[Math.min(3,i.r+1)]+'  ·  ',costFrag([['rift_core',c.rc]],c.em));
+        btn=B(i.rl||i.r>=3?'Max':bl('forge')<3?'Forge 3':'Awaken',()=>awaken(i),'sm',i.rl||i.r>=3||bl('forge')<3||g.em<c.em||have('rift_core')<c.rc);
+      }
+      k.push(row((g.eq[slotOf(i)]===i.u?'[E] ':'')+gname(i),sub_,[btn],'r'+i.r));
+    });
+  }
+}
+function viewCook(k){
+  k.push(head('Kitchen & Tinker','camp'));
+  k.push(hint('Kitchen level '+bl('kitchen')+'. Food is '+(10*bl('kitchen'))+'% stronger.'));
+  RECIPES.filter(r=>r.k!=='Forge').sort((a,b)=>canCraft(b)-canCraft(a)).forEach(r=>{
+    const sub_=document.createDocumentFragment();
+    sub_.append(itemSub(r.out)+(r.kl?' (kitchen '+r.kl+')':'')+'  ·  ',costFrag(r.in,0));
+    k.push(row(nm(r.out)+(have(r.out)?' (own '+have(r.out)+')':''),sub_,[B(r.k,()=>craft(r),'sm',!canCraft(r))]));
+  });
+}
+function viewShop(k){
+  stock();
+  k.push(head('Trader','camp'));
+  const [t,cur]=tabs('sh',[['buy','Supplies'],['gear','Gear'],['sell','Sell']]);k.push(t);
+  if(cur==='buy'){
+    SHOPI.filter(x=>act()>=x[1]).forEach(([id])=>{const p=price(id);k.push(row(nm(id),itemSub(id)+'  ·  '+fmt(p)+' scrip',[B('Buy',()=>buy(id),'sm',g.em<p)]));});
+  }else if(cur==='gear'){
+    k.push(hint('Stock changes every day. Market upgrades add more.'));
+    g.shop.list.forEach(o=>{const p=gearPrice(o.it);k.push(row(gname(o.it),(function(){const f=document.createDocumentFragment();f.append(SLOTN[slotOf(o.it)]+' · T'+tierOf(o.it)+'  ·  ',cmpFrag(o.it),document.createElement('br'),gtxtBase(o.it));return f;})(),[B(o.sold?'Sold':fmt(p),()=>buyGear(o),'sm',!!o.sold||g.em<p)],'r'+o.it.r));});
+  }else{
+    const ids=invIds().filter(id=>have(id)>0);
+    if(!ids.length)k.push(hint('Nothing to sell.'));
+    ids.forEach(id=>{const btns=[B('Sell 1',()=>sellItem(id,false),'sm')];if(have(id)>1)btns.push(B('All',()=>sellItem(id,true),'sm'));k.push(row(nm(id)+' x'+have(id),'Sells for '+sellVal(id,1)+' each',btns));});
+  }
+}
+function viewBuild(k){
+  k.push(head('Build','camp'));
+  BUILD.forEach(b=>{
+    const l=bl(b.id);
+    const sub_=document.createDocumentFragment();
+    if(l>0)sub_.append('Now: '+b.d[l-1]+'  ');
+    if(l<b.max){const c=bCost(b.id,l);sub_.append(document.createElement('br'),'Next: '+b.d[l]+'  ',document.createElement('br'),costFrag(Object.entries(c.i),c.e));}
+    k.push(row(b.n+'  '+l+'/'+b.max,sub_,[B(l>=b.max?'Max':l?'Upgrade':'Build',()=>build(b.id),'sm',!canBuild(b.id))]));
+  });
+}
+function viewSkills(k){
+  k.push(head('Skills'));
+  const p=sp(),free=p.tot-p.used;
+  k.push(hint('Free skill points: '+free+'. You earn one per level (and Echo Insight adds more). Active skills spend Focus; Focus builds as you hit.'));
+  const [t,cur]=tabs('sk',Object.keys(BRANCH).map(b=>[b,BRANCH[b]+' ('+brPts(b)+')']));k.push(t);
+  SKILLS.filter(s=>s.b===cur).forEach(s=>{
+    const r=g.sk[s.id]||0,ok=skillAvail(s);
+    k.push(row(s.n+'  '+r+'/'+s.max,s.d+(ok?'':'  ·  Needs '+s.rq+' points in '+BRANCH[s.b]),[B(r>=s.max?'Max':'+1',()=>rankUp(s),'sm',r>=s.max||!ok||free<=0)]));
+  });
+  const c=respecCost();
+  k.push(sec('Respec'));
+  k.push(row('Reset all skills',fmt(c)+' scrip. Cheaper with a Library.',[B('Respec',respec,'sm danger',g.em<c||!Object.keys(g.sk).length)]));
+}
+function viewUpg(k){
+  k.push(head('Upgrades','camp'));k.push(hint('Paid in scrip. These last until you Rebirth.'));
+  UPG.forEach(u=>{const l=U(u.id),c=upCost(u,l),mx=l>=u.max;k.push(row(u.n+'  '+l+'/'+u.max,u.d,[B(mx?'Max':fmt(c),()=>buyUp(u),'sm',mx||g.em<c)]));});
+}
+function viewEcho(k){
+  k.push(head('Echo shrine'));k.push(hint('You have '+g.ech+' Echoes. These last through every Rebirth.'));
+  ECHO.forEach(u=>{const l=X(u.id),c=echoCost(u,l),mx=l>=u.max;k.push(row(u.n+'  '+l+'/'+u.max,u.d,[B(mx?'Max':c+' Echoes',()=>buyEcho(u),'sm',mx||g.ech<c)]));});
+}
+function viewJournal(k){
+  k.push(head('Journal'));
+  const [t,cur]=tabs('jn',[['lore','Lore'],['pages','Pages']]);k.push(t);
+  if(cur==='lore'){
+    const got=LORE.filter(l=>g.lore[l[0]]);k.push(hint(got.length+' of '+LORE.length+' entries found.'));
+    got.forEach(l=>k.push(row(l[1],l[2],[])));
+  }else{
+    k.push(hint(pageCount()+' of '+PAGES.length+' Lamplighter pages found. Every 6 pages grants +2% ATK and DEF (now +'+2*Math.floor(pageCount()/6)+'%). Enemies and bosses sometimes carry them.'));
+    PAGES.forEach((p,i)=>{if(g.pg[i])k.push(row('Page '+(i+1),p,[]));});
+  }
+}
+function viewRec(k){
+  k.push(head('Records'));
+  const [t,cur]=tabs('rc',[['ach','Achievements'],['title','Titles'],['stats','Lifetime']]);k.push(t);
+  if(cur==='ach'){
+    k.push(hint(Object.keys(g.ach).length+' of '+ACH.length+' earned.'));
+    ACH.forEach(a=>{const done=g.ach[a.id];const rw=[];if(a.em)rw.push(fmt(a.em)+' scrip');if(a.ec)rw.push(a.ec+' Echoes');if(a.ti)rw.push('title '+a.ti);
+      k.push(row((done?'[x] ':'[ ] ')+a.n,a.d+(rw.length?'  ·  '+rw.join(', '):''),[]));});
+  }else if(cur==='title'){
+    const ts=Object.keys(g.titles);
+    k.push(hint(ts.length?'Choose a title to show under your status.':'No titles yet. Achievements award them.'));
+    if(ts.length)k.push(row('None','Show no title.',[B(g.title?'Select':'Active',()=>{g.title='';},'sm',!g.title)]));
+    ts.forEach(x=>k.push(row(x,'',[B(g.title===x?'Active':'Select',()=>{g.title=x;},'sm',g.title===x)])));
+  }else{
+    const s=g.stats;
+    [['Enemies defeated',s.kills],['Elites defeated',s.elites],['Delves completed',s.delves],['Bounties done',s.bounties],['Items crafted',s.crafts],['Times fallen',s.deaths],['Rebirths',g.re],['Bosses felled (ever)',Object.keys(g.bdAll).length],['Endings seen',Object.keys(g.ends).length+'/4']]
+      .forEach(([a,b])=>k.push(row(a,String(b),[])));
+  }
+}
+
+/* ---------- settings ---------- */
+function exportCode(){try{return btoa(unescape(encodeURIComponent(JSON.stringify(g))));}catch(e){return '';}}
+function importCode(s){
+  try{
+    const o=JSON.parse(decodeURIComponent(escape(atob(s.trim()))));
+    let n=null;if(o&&o.v===4)n=norm(o);else if(o&&o.v===1)n=migrate(o);
+    if(!n)return false;
+    g=n;ev=null;UI.auto=false;UI.hunt=false;
+    log.replaceChildren();g.log.forEach(([t,c])=>say(t,c,false));
+    if(g.fight)g.view='fight';else if(g.scene)g.view='scene';else g.view='main';
+    say('Save imported.','sys');return true;
+  }catch(e){return false;}
+}
+function viewTrial(k){
+  k.push(head('Echo Trials'));
+  k.push(hint('Fight the echo of any guardian you have felled. Each win raises the tier: stronger, and richer in Rift Cores, gear and Echoes.'));
+  const ids=Object.keys(BOSSES).filter(id=>g.bdAll[id]);
+  if(!ids.length)k.push(hint('Defeat a guardian first.'));
+  ids.forEach(id=>{const t=trTier(id);k.push(row(BOSSES[id].n,'Next: tier '+t+'  ·  Best: '+(g.trB[id]||0),[B('Fight',()=>startTrial(id),'sm danger',g.hp<maxHp()*.7)]));});
+  if(ids.length&&g.hp<maxHp()*.7)k.push(hint('Rest first. You need at least 70% HP to enter.','warn'));
+}
+function viewSet(k){
+  k.push(head('Settings'));
+  const asl=['Off','Common','Common + Fine','Up to Rare'];
+  k.push(row('Auto-sell loot',asl[g.as+1]+'. Locked and relic items are never auto-sold.',[B('Change',()=>{g.as=g.as>=2?-1:g.as+1;},'sm')]));
+  k.push(sec('Save'));
+  k.push(hint('Your game saves automatically in this browser. Copy the code below to move it elsewhere.'));
+  const ta=el('textarea');ta.readOnly=true;ta.value=exportCode();ta.rows=3;ta.setAttribute('aria-label','Export code');
+  ta.addEventListener('focus',()=>ta.select());k.push(ta);
+  const tb=el('textarea');tb.rows=3;tb.placeholder='Paste a save code here';tb.value=UI.imp||'';tb.setAttribute('aria-label','Import code');
+  tb.addEventListener('input',()=>{UI.imp=tb.value;});k.push(tb);
+  k.push(grid([B('Import',()=>{if(!importCode(UI.imp||'')){UI.msg='That code did not work.';say('That code did not work.','sys');}else UI.imp='';},'sm')]));
+  k.push(sec('Danger'));
+  if(UI.cf!=='wipe')k.push(Bc('Erase everything',()=>{UI.cf='wipe';},'sm danger'));
+  else k.push(grid([B('Erase and restart',()=>{newGame();},'sm danger'),Bc('Cancel',()=>{UI.cf=null;},'sm')]));
+}
+function viewRebirth(k){
+  k.push(head('Rebirth'));
+  const full=!!g.bd.quiet;
+  k.push(hint('You can start again. You keep Echoes, Echo upgrades, lore, achievements, titles, pages, bonds and your kill record. You lose level, gear, items, scrip, skills, upgrades, buildings and quest progress.'));
+  k.push(hint('Next life: enemies get +'+Math.round(50*(g.re+1))+'% HP and +'+Math.round(20*(g.re+1))+'% damage, and pay +'+Math.round(40*(g.re+1))+'% rewards. The story replays, and you can pick a different ending.'));
+  if(!full)k.push(hint('You have not defeated The Quiet Between. Rebirth now and Echoes are halved.','warn'));
+  k.push(row('Echoes gained','You would gain '+echoGain()+' Echoes.',[]));
+  if(UI.cf!=='rb')k.push(Bc('Begin again',()=>{UI.cf='rb';},'danger'));
+  else k.push(grid([B('Yes, rebirth now',rebirth,'danger'),Bc('Cancel',()=>{UI.cf=null;})]));
+}
+
+function renderDeck(){
+  const k=[],v=g.view;
+  if(g.fight&&(v==='fight'||v==='fpack'))viewFight(k);
+  else if(v==='event'&&ev)k.push(grid(ev.opts.map((o,i)=>B(o.l,()=>choose(i),i===0?'primary':'')),true));
+  else if(v==='scene'&&g.scene)viewScene(k);
+  else if(v==='delve'&&g.delve)viewDelve(k);
+  else if(v==='pack')viewPack(k);
+  else if(v==='travel')viewTravel(k);
+  else if(v==='board')viewBoard(k);
+  else if(v==='bounty'){bounty();viewBounty(k);}
+  else if(v==='camp')viewCamp(k);
+  else if(v==='talk')viewTalk(k);
+  else if(v==='party')viewParty(k);
+  else if(v==='forge')viewForge(k);
+  else if(v==='cook')viewCook(k);
+  else if(v==='shop')viewShop(k);
+  else if(v==='build')viewBuild(k);
+  else if(v==='skills')viewSkills(k);
+  else if(v==='upg')viewUpg(k);
+  else if(v==='echo')viewEcho(k);
+  else if(v==='journal')viewJournal(k);
+  else if(v==='rec')viewRec(k);
+  else if(v==='set')viewSet(k);
+  else if(v==='trial')viewTrial(k);
+  else if(v==='rebirth')viewRebirth(k);
+  else{g.view='main';viewMain(k);}
+  const keepScroll=UI.lastView===g.view;
+  const st=deck.scrollTop;
+  deck.replaceChildren(...k);
+  deck.scrollTop=keepScroll?st:0;UI.lastView=g.view;
+}
+
+/* ---------- loop: auto-fight and hunting ---------- */
+function healOutside(){
+  const S=calc();
+  if(g.hp/S.hp<.45){
+    const h=bestHeal();if(h){applyItem(h);return true;}
+    const fd=['feast','ration','pork','stew'].find(have);if(fd){applyItem(fd);return true;}
+  }
+  return false;
+}
+function huntStep(){
+  if(g.fight||g.view!=='main'||g.loc==='camp'){UI.hunt=false;return;}
+  const Z=ZONES[g.loc],S=calc();
+  if(bossReady(Z)){UI.hunt=false;say('Hunt stopped: a guardian waits here.','sys');return;}
+  if(g.hp/S.hp<.5&&!healOutside()){
+    if(g.hp/S.hp<.4){UI.hunt=false;say('Hunt stopped: you are hurt and out of tonics.','sys');return;}
+  }
+  if(g.food<25){const f=foodItem();if(f)applyItem(f);else if(g.food<10){UI.hunt=false;say('Hunt stopped: out of food.','sys');return;}}
+  explore();
+  if(!g.fight&&g.view!=='main')say('Hunt paused. Something needs a decision.','sys');
+}
+function schedule(){
+  if(UI.noTimers||UI.timer)return;
+  const fightAuto=UI.auto&&g.fight&&(g.view==='fight');
+  const huntOn=UI.hunt&&!g.fight&&g.view==='main'&&g.loc!=='camp';
+  if(!fightAuto&&!huntOn)return;
+  UI.timer=setTimeout(()=>{
+    UI.timer=null;
+    if(UI.auto&&g.fight&&g.view==='fight')autoStep();
+    else if(UI.hunt&&!g.fight&&g.view==='main'&&g.loc!=='camp')huntStep();
+    render();
+  },fightAuto?420:520);
+}
+function render(){checkAch();renderStatus();renderDeck();save();schedule();}
+
+/* ================= BOOT ================= */
+function boot(){
+  g=load();
+  if(g){
+    if(g.fight&&!g.fight.p)g.fight=null;
+    if(g.fight)g.view=g.view==='fpack'?'fpack':'fight';
+    else if(g.scene)g.view='scene';
+    else if(g.delve)g.view='delve';
+    else if(['fight','fpack','event','scene','delve'].indexOf(g.view)>=0)g.view='main';
+    g.log.forEach(([t,c])=>say(t,c,false));
+    if(g.fl.migrated&&!g.fl.migsaid){g.fl.migsaid=1;say('Welcome back. Your level, upgrades, echoes and items came with you. The story begins again, bigger.','lvl');}
+  }else newGame();
+  render();
+}
+boot();
+if(window.__HF_TEST||window.__HF_HOOK){window.__hfe=s=>eval(s);}
+if(window.__HF_TEST)UI.noTimers=true;
+
+})();
+</script>
